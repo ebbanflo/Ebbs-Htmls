@@ -62,6 +62,32 @@
             opacity: 0.8;
         }
 
+        .side-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            writing-mode: vertical-lr;
+            text-orientation: mixed;
+            transform: rotate(0deg);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .side-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ff3333;
+            letter-spacing: -0.5px;
+        }
+
+        .side-fraction {
+            font-size: 14px;
+            color: #ff5555;
+            opacity: 0.8;
+        }
+
         .ruler-container {
             position: absolute;
             left: 0;
@@ -207,6 +233,11 @@
         </div>
     </div>
 
+    <div class="side-display">
+        <div class="side-value" id="sideInches">0</div>
+        <div class="side-fraction" id="sideFraction">—</div>
+    </div>
+
     <div class="ruler-container">
         <div class="ruler" id="ruler">
             <div class="red-line" id="redLine"></div>
@@ -223,6 +254,8 @@
         const ruler = document.getElementById('ruler');
         const inchesDisplay = document.getElementById('inches');
         const fractionDisplay = document.getElementById('fraction');
+        const sideInchesDisplay = document.getElementById('sideInches');
+        const sideFractionDisplay = document.getElementById('sideFraction');
 
         let isActive = false;
         let offset = 0;
@@ -282,6 +315,8 @@
             // Update display
             inchesDisplay.textContent = inches.toFixed(2);
             fractionDisplay.textContent = decimalToFraction(inches);
+            sideInchesDisplay.textContent = inches.toFixed(2);
+            sideFractionDisplay.textContent = decimalToFraction(inches);
         }
 
         redLine.addEventListener('mousedown', (e) => {

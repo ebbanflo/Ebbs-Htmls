@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Ruler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            font-family: 'SF Mono', 'Monaco', monospace;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 0;
+            gap: 0;
+            position: relative;
+        }
+
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .measurement-display {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .measurement-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #ff3333;
+            letter-spacing: -0.5px;
+        }
+
+        .measurement-fraction {
+            font-size: 18px;
+            color: #ff5555;
+            opacity: 0.8;
+        }
+
+        .ruler-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            border: none;
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .ruler {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .red-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 28px;
+            background: #ff3333;
+            cursor: grab;
+            top: 200px;
+            z-index: 50;
+            box-shadow: 0 0 12px rgba(255, 51, 51, 0.6), inset 0 0 8px rgba(0, 0, 0, 0.3);
+            transition: box-shadow 0.2s ease;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .red-line:active {
+            cursor: grabbing;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.8), inset 0 0 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .red-line::before,
+        .red-line::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+
+        .red-line::before {
+            left: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 12px 16px 12px 0;
+            border-color: transparent #ff3333 transparent transparent;
+        }
+
+        .red-line::after {
+            right: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 12px 0 12px 16px;
+            border-color: transparent transparent transparent #ff3333;
+        }
+
+        .info-text {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                top: 12px;
+                left: 12px;
+                right: 12px;
+            }
+
+            .measurement-value {
+                font-size: 24px;
+            }
+
+            .measurement-fraction {
+                font-size: 14px;
+            }
+
+            .ruler {
+                padding: 12px 0;
+            }
+
+            .measurement-mark {
+                padding: 0 8px;
+                gap: 6px;
+                font-size: 10px;
+            }
+
+            .mark-line {
+                height: 2px;
+            }
+
+            .mark-label {
+                font-size: 9px;
+                min-width: 28px;
+                flex-shrink: 0;
+            }
+
+            .red-line {
+                height: 24px;
+            }
+
+            .red-line::before {
+                border-width: 10px 14px 10px 0;
+            }
+
+            .red-line::after {
+                border-width: 10px 0 10px 14px;
+            }
+
+            .info-text {
+                bottom: 12px;
+                left: 12px;
+                right: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="measurement-display">
+            <div class="measurement-value" id="inches">0</div>
+            <div class="measurement-fraction" id="fraction">—</div>
+        </div>
+    </div>
+
+    <div class="ruler-container">
+        <div class="ruler" id="ruler">
+            <div class="red-line" id="redLine"></div>
+        </div>
+    </div>
+
+    <div class="info-text">
+        Drag the red line to measure
+    </div>
+
+    <script>
+        const PIXELS_PER_INCH = 200; // 200px = 1 inch (calibrated for accuracy)
+        const redLine = document.getElementById('redLine');
+        const ruler = document.getElementById('ruler');
+        const inchesDisplay = document.getElementById('inches');
+        const fractionDisplay = document.getElementById('fraction');
+
+        let isActive = false;
+        let offset = 0;
+
+        // Fractions mapping for common measurements
+        const fractionMap = {
+            0: '0″',
+            0.125: '⅛″',
+            0.25: '¼″',
+            0.375: '⅜″',
+            0.5: '½″',
+            0.625: '⅝″',
+            0.75: '¾″',
+            0.875: '⅞″',
+            1: '1″'
+        };
+
+        function decimalToFraction(decimal) {
+            // Round to nearest 1/8 inch
+            const eighths = Math.round(decimal * 8);
+            const fractional = (eighths % 8) / 8;
+            const wholeInches = Math.floor(decimal);
+            
+            // Find the best fraction match
+            for (let denominator = 1; denominator <= 8; denominator++) {
+                for (let numerator = 0; numerator <= denominator; numerator++) {
+                    if (Math.abs(fractional - (numerator / denominator)) < 0.01) {
+                        if (numerator === 0) {
+                            return `${wholeInches}″`;
+                        }
+                        const fractionSymbols = {
+                            '1/8': '⅛', '2/8': '¼', '3/8': '⅜', '4/8': '½',
+                            '5/8': '⅝', '6/8': '¾', '7/8': '⅞'
+                        };
+                        const key = `${numerator}/${denominator}`;
+                        const symbol = fractionSymbols[key] || `${numerator}/${denominator}`;
+                        return wholeInches > 0 ? `${wholeInches} ${symbol}″` : `${symbol}″`;
+                    }
+                }
+            }
+            return `${decimal.toFixed(3)}″`;
+        }
+
+        function updateDisplay(clientY) {
+            const rulerRect = ruler.getBoundingClientRect();
+            let y = clientY - rulerRect.top;
+            
+            // Constrain to ruler bounds
+            y = Math.max(0, Math.min(y, rulerRect.height));
+            
+            // Calculate inches from the top
+            const inches = y / PIXELS_PER_INCH;
+            
+            // Update red line position
+            redLine.style.top = y + 'px';
+            
+            // Update display
+            inchesDisplay.textContent = inches.toFixed(2);
+            fractionDisplay.textContent = decimalToFraction(inches);
+        }
+
+        redLine.addEventListener('mousedown', (e) => {
+            isActive = true;
+            const rulerRect = ruler.getBoundingClientRect();
+            offset = e.clientY - parseFloat(redLine.style.top);
+            e.preventDefault();
+        });
+
+        redLine.addEventListener('touchstart', (e) => {
+            isActive = true;
+            const rulerRect = ruler.getBoundingClientRect();
+            offset = e.touches[0].clientY - parseFloat(redLine.style.top);
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isActive) {
+                updateDisplay(e.clientY - offset);
+            }
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isActive) {
+                updateDisplay(e.touches[0].clientY - offset);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isActive = false;
+        });
+
+        document.addEventListener('touchend', () => {
+            isActive = false;
+        });
+
+        // Click on ruler to set red line position
+        ruler.addEventListener('click', (e) => {
+            updateDisplay(e.clientY);
+        });
+
+        // Initialize display
+        updateDisplay(redLine.offsetTop);
+    </script>
+</body>
+</html>

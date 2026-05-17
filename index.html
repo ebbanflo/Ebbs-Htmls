@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Tools</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: #f5f5f5;
+            overflow-x: hidden;
+        }
+
+        body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .header {
+            text-align: center;
+            padding-bottom: 12px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            width: 100%;
+        }
+
+        .tool-card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .tool-card:hover {
+            background: linear-gradient(135deg, #242424 0%, #1a1a1a 100%);
+            border-color: #333;
+            transform: translateY(-2px);
+        }
+
+        .tool-card:active {
+            transform: scale(0.98);
+        }
+
+        .tool-icon {
+            font-size: 32px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 51, 51, 0.1);
+            border-radius: 8px;
+            color: #ff3333;
+        }
+
+        .tool-name {
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .empty-state code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            color: #ff3333;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px;
+                gap: 20px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .tools-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 10px;
+            }
+
+            .tool-card {
+                padding: 12px;
+                gap: 6px;
+            }
+
+            .tool-icon {
+                font-size: 28px;
+                width: 40px;
+                height: 40px;
+            }
+
+            .tool-name {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tools</h1>
+        <p>Quick access to your HTML utilities</p>
+    </div>
+
+    <div class="tools-grid" id="toolsGrid">
+        <a href="ruler.html" class="tool-card">
+            <div class="tool-icon">📏</div>
+            <div class="tool-name">Ruler</div>
+        </a>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display: none;">
+        <p>No tools yet. Add more HTML files to get started.</p>
+        <p>Each tool needs its own <code>.html</code> file in the same directory as <code>index.html</code></p>
+    </div>
+
+    <script>
+        const toolsGrid = document.getElementById('toolsGrid');
+        const emptyState = document.getElementById('emptyState');
+
+        if (toolsGrid.children.length === 0) {
+            toolsGrid.style.display = 'none';
+            emptyState.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

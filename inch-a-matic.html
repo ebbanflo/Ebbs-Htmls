@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<title>INCH-A-MATIC</title>
+<style>
+  :root {
+    --bg: #000000;
+    --green: #00ff41;
+    --green-dim: #1f8a35;
+    --green-bright: #9bff9b;
+    --green-faint: #064014;
+    --amber: #ffc83d;
+    --red: #ff5050;
+    --glow: 0 0 4px rgba(0, 255, 65, 0.55);
+    --glow-strong: 0 0 8px rgba(0, 255, 65, 0.85);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 1.4;
+    overscroll-behavior: none;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    text-shadow: var(--glow);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* CRT scanlines + subtle flicker */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.18) 3px,
+      rgba(0, 0, 0, 0) 4px
+    );
+    z-index: 100;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+      rgba(0, 255, 65, 0.04) 0%,
+      rgba(0, 0, 0, 0.25) 100%);
+    z-index: 99;
+    animation: flicker 6s infinite;
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    48% { opacity: 0.97; }
+    50% { opacity: 0.94; }
+    52% { opacity: 0.99; }
+  }
+
+  .screen {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 14px 14px 40px;
+  }
+
+  .boot {
+    border: 1px solid var(--green-dim);
+    padding: 8px 10px 6px;
+    margin-bottom: 14px;
+    background: rgba(0, 255, 65, 0.02);
+  }
+  .boot .title {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--green-bright);
+    text-shadow: var(--glow-strong);
+    font-size: 16px;
+  }
+  .boot .sub {
+    font-size: 11px;
+    color: var(--green-dim);
+    margin-top: 2px;
+    text-shadow: none;
+  }
+  .boot .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .cursor {
+    display: inline-block;
+    width: 9px;
+    height: 14px;
+    background: var(--green);
+    vertical-align: -2px;
+    margin-left: 4px;
+    animation: blink 1s steps(2, start) infinite;
+    box-shadow: var(--glow);
+  }
+  @keyframes blink { to { visibility: hidden; } }
+
+  .section {
+    margin: 18px 0 10px;
+  }
+  .section-head {
+    font-size: 12px;
+    color: var(--green-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+    text-shadow: none;
+  }
+  .section-head .bar {
+    color: var(--green-dim);
+  }
+
+  .prompt-line {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--green-dim);
+    background: rgba(0, 255, 65, 0.03);
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border-radius: 0;
+  }
+  .prompt-line:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green), 0 0 10px rgba(0, 255, 65, 0.4) inset;
+  }
+  .prompt-line .gt {
+    color: var(--green-bright);
+    margin-right: 8px;
+    font-weight: 700;
+    text-shadow: var(--glow-strong);
+  }
+  .prompt-line input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--green-bright);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    caret-color: var(--green);
+    text-shadow: var(--glow-strong);
+    min-width: 0;
+    padding: 2px 0;
+  }
+  .prompt-line input::placeholder {
+    color: var(--green-faint);
+    text-shadow: none;
+    font-weight: 400;
+  }
+  .prompt-line .unit {
+    color: var(--green-dim);
+    margin-left: 6px;
+    font-size: 13px;
+    text-shadow: none;
+  }
+
+  .op-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin: 8px 0;
+  }
+  .op {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 10px 0;
+    cursor: pointer;
+    text-shadow: var(--glow);
+    transition: background 80ms, color 80ms, border-color 80ms;
+    min-height: 44px;
+  }
+  .op:active, .op.active {
+    background: var(--green);
+    color: #000;
+    border-color: var(--green);
+    text-shadow: none;
+  }
+  .op.equals {
+    color: var(--green-bright);
+    border-color: var(--green);
+  }
+  .op.equals:active {
+    background: var(--green-bright);
+    color: #000;
+  }
+
+  .output {
+    border: 1px solid var(--green-dim);
+    padding: 10px 12px;
+    margin-top: 6px;
+    background: rgba(0, 255, 65, 0.025);
+    min-height: 120px;
+  }
+  .out-line {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 14px;
+  }
+  .out-label {
+    color: var(--green-dim);
+    text-shadow: none;
+    letter-spacing: 0.05em;
+  }
+  .out-value {
+    color: var(--green-bright);
+    text-shadow: var(--glow-strong);
+    word-break: break-word;
+  }
+  .out-line.spoken {
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--green-faint);
+  }
+  .out-line.spoken .out-label {
+    margin-bottom: 4px;
+  }
+  .out-line.spoken .out-value {
+    color: var(--amber);
+    text-shadow: 0 0 5px rgba(255, 200, 61, 0.55);
+    font-style: normal;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .out-error {
+    color: var(--red);
+    text-shadow: 0 0 5px rgba(255, 80, 80, 0.7);
+    font-size: 13px;
+    padding: 2px 0;
+  }
+  .out-hint {
+    color: var(--green-dim);
+    font-size: 11px;
+    text-shadow: none;
+    margin-top: 6px;
+  }
+  .delta-pos { color: var(--amber); text-shadow: 0 0 4px rgba(255,200,61,0.5); }
+  .delta-neg { color: #ff8080; text-shadow: 0 0 4px rgba(255,128,128,0.5); }
+
+  .divider {
+    border: 0;
+    border-top: 1px dashed var(--green-dim);
+    margin: 22px 0 14px;
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--green-dim);
+    font-size: 10px;
+    margin-top: 22px;
+    text-shadow: none;
+    letter-spacing: 0.1em;
+  }
+
+  /* iOS rounded input correction */
+  input { border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="boot">
+    <div class="row">
+      <div class="title">INCH-A-MATIC<span class="cursor"></span></div>
+      <div class="sub">v1.0</div>
+    </div>
+    <div class="sub">decimal &rarr; fraction &rarr; thou</div>
+  </div>
+
+  <!-- ============ CONVERT ============ -->
+  <div class="section">
+    <div class="section-head"><span class="bar">&mdash;&mdash;</span> CONVERT <span class="bar">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+    <label class="prompt-line" for="convInput">
+      <span class="gt">&gt;</span>
+      <input id="convInput" type="text" inputmode="decimal" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             placeholder="enter inches (e.g. 1.2409)">
+      <span class="unit">in</span>
+    </label>
+    <div class="output" id="convOut">
+      <div class="out-hint">awaiting input...</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ============ CALC ============ -->
+  <div class="section">
+    <div class="section-head"><span class="bar">&mdash;&mdash;</span> CALC <span class="bar">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span></div>
+
+    <label class="prompt-line" for="calcA">
+      <span class="gt">&gt;</span>
+      <input id="calcA" type="text" inputmode="decimal" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             placeholder="value A (e.g. -12.2044)">
+      <span class="unit">in</span>
+    </label>
+
+    <div class="op-row" id="opRow">
+      <button class="op" data-op="+">+</button>
+      <button class="op" data-op="-">&minus;</button>
+      <button class="op" data-op="*">&times;</button>
+      <button class="op" data-op="/">&divide;</button>
+      <button class="op equals" id="equalsBtn">=</button>
+    </div>
+
+    <label class="prompt-line" for="calcB">
+      <span class="gt">&gt;</span>
+      <input id="calcB" type="text" inputmode="decimal" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             placeholder="value B (e.g. .054)">
+      <span class="unit">in</span>
+    </label>
+
+    <div class="output" id="calcOut">
+      <div class="out-hint">awaiting input...</div>
+    </div>
+  </div>
+
+  <div class="footer">&mdash; END OF LINE &mdash;</div>
+</div>
+
+<script>
+  // ========== NUMBER → ENGLISH ==========
+  const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine',
+                'ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen',
+                'seventeen','eighteen','nineteen'];
+  const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+
+  function intToWords(n) {
+    n = Math.floor(n);
+    if (n < 0) return 'negative ' + intToWords(-n);
+    if (n < 20) return ONES[n];
+    if (n < 100) {
+      const t = Math.floor(n / 10);
+      const o = n % 10;
+      return TENS[t] + (o ? '-' + ONES[o] : '');
+    }
+    if (n < 1000) {
+      const h = Math.floor(n / 100);
+      const r = n % 100;
+      return ONES[h] + ' hundred' + (r ? ' ' + intToWords(r) : '');
+    }
+    if (n < 1000000) {
+      const k = Math.floor(n / 1000);
+      const r = n % 1000;
+      return intToWords(k) + ' thousand' + (r ? ' ' + intToWords(r) : '');
+    }
+    return n.toLocaleString();
+  }
+
+  // ========== INCHES → THOU ENGLISH ==========
+  // 1.2409  → "one inch and two hundred forty-one thou"
+  // 0.0923  → "ninety-two thou" (rounded; 92.3)
+  // 1.25    → "one inch and two hundred fifty thou"
+  // 12      → "twelve inches"
+  function inchesToSpoken(decimal) {
+    if (decimal === 0) return 'zero thou';
+    const negative = decimal < 0;
+    const abs = Math.abs(decimal);
+    const whole = Math.floor(abs + 1e-12);
+    const fractionalInches = abs - whole;
+    // round to nearest thou (integer thousandth)
+    let thou = Math.round(fractionalInches * 1000);
+    let wholeAdj = whole;
+    if (thou === 1000) { thou = 0; wholeAdj += 1; }
+
+    const parts = [];
+    if (negative) parts.push('negative');
+
+    if (wholeAdj > 0) {
+      parts.push(intToWords(wholeAdj));
+      parts.push(wholeAdj === 1 ? 'inch' : 'inches');
+    }
+
+    if (thou > 0) {
+      if (wholeAdj > 0) parts.push('and');
+      parts.push(intToWords(thou));
+      parts.push('thou');
+    } else if (wholeAdj === 0) {
+      parts.push('zero thou');
+    }
+
+    return parts.join(' ');
+  }
+
+  // ========== DECIMAL → NEAREST 1/16 FRACTION (reduced) ==========
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a,b]=[b,a%b]; } return a || 1; }
+
+  function inchesToFraction(decimal) {
+    const negative = decimal < 0;
+    const abs = Math.abs(decimal);
+    let whole = Math.floor(abs + 1e-12);
+    let frac = abs - whole;
+    let num = Math.round(frac * 16);
+    let den = 16;
+    if (num === 16) { whole += 1; num = 0; }
+
+    const sign = negative ? '-' : '';
+    let display;
+    let exactValue;
+
+    if (num === 0) {
+      display = sign + whole + '"';
+      exactValue = (negative ? -1 : 1) * whole;
+    } else {
+      const g = gcd(num, den);
+      const n2 = num / g, d2 = den / g;
+      if (whole === 0) {
+        display = sign + n2 + '/' + d2 + '"';
+      } else {
+        display = sign + whole + ' ' + n2 + '/' + d2 + '"';
+      }
+      exactValue = (negative ? -1 : 1) * (whole + num / den);
+    }
+
+    return { display, exactValue };
+  }
+
+  // ========== RENDER ==========
+  function fmtNum(n, digits) {
+    if (!Number.isFinite(n)) return String(n);
+    // up to `digits` decimals, trim trailing zeros
+    return parseFloat(n.toFixed(digits)).toString();
+  }
+
+  function renderResult(container, decimal) {
+    if (decimal === null || decimal === undefined || Number.isNaN(decimal)) {
+      container.innerHTML = '<div class="out-error">ERR: invalid input</div>';
+      return;
+    }
+    if (!Number.isFinite(decimal)) {
+      container.innerHTML = '<div class="out-error">ERR: ' + decimal + '</div>';
+      return;
+    }
+
+    const frac = inchesToFraction(decimal);
+    const thouVal = decimal * 1000;
+    const thouDisp = fmtNum(thouVal, 2);
+    const spoken = inchesToSpoken(decimal);
+    const decDisp = fmtNum(decimal, 6) + '"';
+
+    // delta between rounded fraction and true decimal
+    const delta = frac.exactValue - decimal;
+    let deltaHtml = '';
+    if (Math.abs(delta) > 1e-9) {
+      const cls = delta > 0 ? 'delta-pos' : 'delta-neg';
+      const sign = delta > 0 ? '+' : '';
+      deltaHtml = ' <span class="' + cls + '">(&Delta; ' + sign + fmtNum(delta, 4) + '")</span>';
+    }
+
+    container.innerHTML =
+      '<div class="out-line"><span class="out-label">DECIMAL</span><span class="out-value">' + decDisp + '</span></div>' +
+      '<div class="out-line"><span class="out-label">FRACTION</span><span class="out-value">' + frac.display + deltaHtml + '</span></div>' +
+      '<div class="out-line"><span class="out-label">THOU</span><span class="out-value">' + thouDisp + ' thou</span></div>' +
+      '<div class="out-line spoken"><span class="out-label">SPOKEN</span><span class="out-value">&ldquo;' + spoken + '&rdquo;</span></div>';
+  }
+
+  // ========== INPUT PARSING ==========
+  // Accept things like "1.2409", ".0923", "-12.2044", "-.5"
+  function parseInches(str) {
+    if (typeof str !== 'string') return NaN;
+    const s = str.trim();
+    if (s === '' || s === '-' || s === '.' || s === '-.') return null; // incomplete
+    // strict number-ish pattern
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+    return parseFloat(s);
+  }
+
+  // ========== WIRE UP CONVERTER ==========
+  const convInput = document.getElementById('convInput');
+  const convOut = document.getElementById('convOut');
+
+  function updateConverter() {
+    const raw = convInput.value;
+    if (raw.trim() === '') {
+      convOut.innerHTML = '<div class="out-hint">awaiting input...</div>';
+      return;
+    }
+    const val = parseInches(raw);
+    if (val === null) {
+      convOut.innerHTML = '<div class="out-hint">awaiting input...</div>';
+      return;
+    }
+    if (Number.isNaN(val)) {
+      convOut.innerHTML = '<div class="out-error">ERR: cannot parse "' + raw + '"</div>';
+      return;
+    }
+    renderResult(convOut, val);
+  }
+  convInput.addEventListener('input', updateConverter);
+
+  // ========== WIRE UP CALCULATOR ==========
+  const calcA = document.getElementById('calcA');
+  const calcB = document.getElementById('calcB');
+  const calcOut = document.getElementById('calcOut');
+  const opButtons = document.querySelectorAll('.op[data-op]');
+  const equalsBtn = document.getElementById('equalsBtn');
+
+  let currentOp = '+';
+
+  function setOp(op) {
+    currentOp = op;
+    opButtons.forEach(b => {
+      b.classList.toggle('active', b.dataset.op === op);
+    });
+    updateCalc();
+  }
+  opButtons.forEach(b => {
+    b.addEventListener('click', () => setOp(b.dataset.op));
+  });
+  setOp('+'); // default highlight
+
+  function updateCalc() {
+    const aRaw = calcA.value;
+    const bRaw = calcB.value;
+    if (aRaw.trim() === '' && bRaw.trim() === '') {
+      calcOut.innerHTML = '<div class="out-hint">awaiting input...</div>';
+      return;
+    }
+    const a = parseInches(aRaw);
+    const b = parseInches(bRaw);
+    if (a === null || b === null) {
+      calcOut.innerHTML = '<div class="out-hint">awaiting both values...</div>';
+      return;
+    }
+    if (Number.isNaN(a) || Number.isNaN(b)) {
+      calcOut.innerHTML = '<div class="out-error">ERR: invalid number</div>';
+      return;
+    }
+    let result;
+    switch (currentOp) {
+      case '+': result = a + b; break;
+      case '-': result = a - b; break;
+      case '*': result = a * b; break;
+      case '/':
+        if (b === 0) { calcOut.innerHTML = '<div class="out-error">ERR: divide by zero</div>'; return; }
+        result = a / b; break;
+      default: result = NaN;
+    }
+    // floating point cleanup: round to 1e-9 to avoid 0.30000000000000004
+    result = Math.round(result * 1e9) / 1e9;
+    renderResult(calcOut, result);
+  }
+  calcA.addEventListener('input', updateCalc);
+  calcB.addEventListener('input', updateCalc);
+  equalsBtn.addEventListener('click', () => {
+    equalsBtn.classList.add('active');
+    setTimeout(() => equalsBtn.classList.remove('active'), 150);
+    updateCalc();
+    // soft scroll to result
+    calcOut.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  // Prevent double-tap zoom on op buttons
+  document.querySelectorAll('.op').forEach(el => {
+    el.addEventListener('touchend', e => { e.preventDefault(); el.click(); }, { passive: false });
+  });
+</script>
+</body>
+</html>

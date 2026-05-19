@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEY-LAB · Chord Workshop</title>
+<style>
+  /* ============ RESET ============ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #161616;
+    --panel-grad: linear-gradient(180deg, #2c2c2c 0%, #232323 100%);
+    --panel-grad-inset: linear-gradient(180deg, #1a1a1a 0%, #232323 100%);
+    --border-light: #3d3d3d;
+    --border-dark: #0a0a0a;
+    --text: #d4d4d4;
+    --text-dim: #888;
+    --text-faint: #555;
+    --amber: #ff9d2e;
+    --amber-bright: #ffb84d;
+    --amber-glow: rgba(255, 157, 46, 0.45);
+    --green: #6bff8a;
+    --red: #ff5050;
+    --blue: #5fb3ff;
+    --lcd-bg: #0a1408;
+    --lcd-text: #6bff8a;
+    --lcd-glow: rgba(107, 255, 138, 0.6);
+    --white-key: #ece6d5;
+    --white-key-dim: #c4bca8;
+    --black-key: #161616;
+    --shadow-deep: 0 4px 16px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(circle at 20% 0%, rgba(255, 157, 46, 0.04), transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(95, 179, 255, 0.03), transparent 50%),
+      var(--bg);
+    padding: 16px;
+  }
+
+  /* ============ APP CONTAINER ============ */
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+    background: var(--panel-grad);
+    border-radius: 8px;
+    border-top: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-dark);
+    box-shadow: var(--shadow-deep);
+    overflow: hidden;
+  }
+
+  /* ============ HEADER ============ */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    background: linear-gradient(180deg, #1d1d1d, #141414);
+    border-bottom: 1px solid var(--border-dark);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+  }
+  .header .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .header .logo .glyph {
+    color: var(--amber);
+    font-size: 18px;
+    text-shadow: 0 0 8px var(--amber-glow);
+  }
+  .header .sub {
+    color: var(--text-faint);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+  }
+  .header .led {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 6px var(--amber-glow);
+    animation: pulse 2s ease-in-out infinite;
+    margin-right: 8px;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  /* ============ MODULE PANELS ============ */
+  .module {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-dark);
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.15));
+  }
+  .module:last-child { border-bottom: 0; }
+
+  .mod-label {
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--text-faint);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mod-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--border-light), transparent);
+  }
+
+  /* ============ KEY MODULE ============ */
+  .key-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .select-wrap::after {
+    content: '▾';
+    position: absolute;
+    right: 10px;
+    color: var(--amber);
+    pointer-events: none;
+    font-size: 10px;
+  }
+  select, .btn, .lcd-input {
+    background: linear-gradient(180deg, #1f1f1f, #161616);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid #2a2a2a;
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 28px 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 88px;
+    letter-spacing: 0.05em;
+  }
+  select:hover, .btn:hover { border-color: var(--amber); }
+  select:focus { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+
+  .btn {
+    padding: 8px 14px;
+    min-width: 0;
+    color: var(--amber);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    transition: background 80ms, transform 80ms, box-shadow 80ms;
+  }
+  .btn:hover { background: linear-gradient(180deg, #2a2018, #1f1812); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: linear-gradient(180deg, #4a2e15, #2a1a0d);
+    border-color: var(--amber);
+    color: var(--amber-bright);
+    box-shadow: 0 0 12px rgba(255, 157, 46, 0.2);
+  }
+  .btn.primary:hover {
+    background: linear-gradient(180deg, #6b3f1c, #3a2310);
+    box-shadow: 0 0 16px rgba(255, 157, 46, 0.4);
+  }
+
+  .lcd {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--lcd-bg);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid #1a2a18;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+    font-size: 11px;
+    color: var(--lcd-text);
+    text-shadow: 0 0 4px var(--lcd-glow);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4) inset;
+    letter-spacing: 0.08em;
+  }
+  .lcd .lcd-label {
+    color: rgba(107, 255, 138, 0.5);
+    text-shadow: none;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+  }
+  .meter {
+    display: inline-block;
+    width: 80px;
+    height: 8px;
+    background: #061806;
+    border: 1px solid #0d2010;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+    vertical-align: middle;
+  }
+  .meter-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(to right, #00cc4e, #6bff8a, #a8ff5a);
+    box-shadow: 0 0 6px var(--lcd-glow);
+    transition: width 200ms ease;
+  }
+
+  /* ============ KEYBOARD ============ */
+  .keyboard-wrap {
+    position: relative;
+    background: linear-gradient(180deg, #0f0f0f, #1a1a1a);
+    padding: 18px 14px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-dark);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5) inset, 0 1px 0 rgba(255,255,255,0.02);
+  }
+  .keyboard {
+    position: relative;
+    height: 140px;
+    display: flex;
+    gap: 2px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .key-white {
+    flex: 1;
+    background: linear-gradient(180deg, var(--white-key) 0%, var(--white-key-dim) 100%);
+    border-radius: 0 0 4px 4px;
+    border: 1px solid #000;
+    border-top: 1px solid #888;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    color: #555;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: background 80ms;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  }
+  .key-white:hover { background: linear-gradient(180deg, #fff5cc, #ffd180); }
+  .key-white.active,
+  .key-white:active {
+    background: linear-gradient(180deg, var(--amber-bright), var(--amber));
+    color: #000;
+    box-shadow: 0 0 12px var(--amber-glow), 0 2px 4px rgba(0,0,0,0.4);
+  }
+
+  .key-black {
+    position: absolute;
+    top: 0;
+    width: 7%;
+    height: 60%;
+    background: linear-gradient(180deg, #2a2a2a 0%, var(--black-key) 80%, #050505 100%);
+    border-radius: 0 0 3px 3px;
+    border: 1px solid #000;
+    cursor: pointer;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 6px;
+    color: var(--white-key-dim);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: background 80ms;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.08) inset;
+  }
+  .key-black:hover { background: linear-gradient(180deg, #4a3a20, #2a2010 80%, #050505); color: var(--amber); }
+  .key-black.active,
+  .key-black:active {
+    background: linear-gradient(180deg, var(--amber), #b35e0a 80%, #6b3805);
+    color: #000;
+    box-shadow: 0 0 12px var(--amber-glow), 0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  /* ============ CHORD MENU ============ */
+  .chord-menu {
+    margin-top: 12px;
+    background: var(--panel-grad-inset);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: none;
+  }
+  .chord-menu.open { display: block; }
+  .chord-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .chord-menu-title {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+  .chord-menu-title strong {
+    color: var(--amber);
+    font-size: 16px;
+    margin-right: 6px;
+    text-shadow: 0 0 6px var(--amber-glow);
+  }
+  .chord-menu-close {
+    background: transparent;
+    border: 0;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 6px;
+    line-height: 1;
+  }
+  .chord-menu-close:hover { color: var(--amber); }
+
+  .chord-category {
+    margin-top: 8px;
+  }
+  .chord-category-label {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .chord-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .chord-option {
+    background: linear-gradient(180deg, #2a2a2a, #1d1d1d);
+    border: 1px solid #0a0a0a;
+    border-top: 1px solid #383838;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    min-width: 50px;
+    text-align: center;
+    transition: all 80ms;
+  }
+  .chord-option:hover {
+    background: linear-gradient(180deg, #3a2818, #2a1c0e);
+    border-color: var(--amber);
+    color: var(--amber-bright);
+  }
+  .chord-option:active { transform: translateY(1px); }
+
+  /* ============ CHORD BOXES ============ */
+  .boxes-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 96px;
+    align-items: flex-start;
+  }
+  .box {
+    width: 90px;
+    background: var(--panel-grad-inset);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 10px 8px;
+    position: relative;
+    cursor: pointer;
+    transition: all 120ms;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-height: 96px;
+  }
+  .box:hover { border-color: #555; }
+  .box.selected {
+    border-color: var(--amber);
+    box-shadow: 0 0 12px rgba(255, 157, 46, 0.3), 0 0 0 1px var(--amber) inset;
+  }
+  .box.empty .box-chord { color: var(--text-faint); font-style: italic; font-size: 11px; }
+  .box .box-num {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 8px;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+  }
+  .box .box-remove {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    background: transparent;
+    border: 0;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 2px;
+  }
+  .box .box-remove:hover { color: var(--red); }
+  .box .box-chord {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 14px;
+    word-break: break-word;
+    line-height: 1.1;
+  }
+  .box .box-roman {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+    margin-top: 6px;
+    text-shadow: 0 0 4px var(--amber-glow);
+  }
+  .box .box-cat {
+    font-size: 9px;
+    color: var(--text-faint);
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+  }
+  .box .box-cat.diatonic { color: var(--green); }
+  .box .box-cat.borrowed { color: var(--blue); }
+  .box .box-cat.secondary-dom { color: var(--amber-bright); }
+  .box .box-cat.modal-mixture { color: var(--amber); }
+  .box .box-cat.chromatic { color: var(--red); }
+
+  .add-box {
+    width: 90px;
+    min-height: 96px;
+    border: 1.5px dashed var(--border-light);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-faint);
+    font-size: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 120ms;
+  }
+  .add-box:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: rgba(255, 157, 46, 0.05);
+  }
+
+  /* ============ ANALYSIS ============ */
+  .analysis {
+    background: var(--panel-grad-inset);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 12px 14px;
+    min-height: 60px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  .analysis .line { padding: 2px 0; }
+  .analysis .line .tag {
+    display: inline-block;
+    color: var(--text-faint);
+    width: 90px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .analysis .roman-flow {
+    color: var(--amber);
+    text-shadow: 0 0 4px var(--amber-glow);
+    font-weight: 600;
+  }
+  .analysis .arrow { color: var(--text-faint); margin: 0 4px; }
+  .analysis .key-name { color: var(--amber-bright); font-weight: 600; }
+  .analysis .relative { color: var(--blue); }
+  .analysis .placeholder { color: var(--text-faint); font-style: italic; }
+  .analysis .count-good { color: var(--green); }
+  .analysis .count-warn { color: var(--amber); }
+
+  /* ============ TOP KEYS DISPLAY ============ */
+  .top-keys {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .top-key {
+    background: linear-gradient(180deg, #1f1f1f, #161616);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid #2a2a2a;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .top-key.best { color: var(--amber-bright); border-color: var(--amber); text-shadow: 0 0 4px var(--amber-glow); }
+
+  /* ============ AUDIO TOGGLE ============ */
+  .audio-toggle {
+    background: linear-gradient(180deg, #1f1f1f, #161616);
+    border: 1px solid var(--border-dark);
+    border-top: 1px solid #2a2a2a;
+    color: var(--amber);
+    width: 32px;
+    height: 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 100ms;
+  }
+  .audio-toggle:hover { border-color: var(--amber); }
+  .audio-toggle.on { color: var(--amber); text-shadow: 0 0 4px var(--amber-glow); }
+  .audio-toggle.on svg { filter: drop-shadow(0 0 3px var(--amber-glow)); }
+  .audio-toggle.off { color: var(--text-faint); }
+  .audio-toggle .mute-x { display: none; }
+  .audio-toggle.off .wave-1, .audio-toggle.off .wave-2 { display: none; }
+  .audio-toggle.off .mute-x { display: block; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 640px) {
+    .keyboard { height: 110px; }
+    .box, .add-box { width: 80px; min-height: 90px; }
+    .box .box-chord { font-size: 16px; }
+    .header .sub { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ HEADER ============ -->
+  <div class="header">
+    <div class="logo">
+      <span class="led"></span>
+      <span class="glyph">&#9835;</span>
+      <span>KEY-LAB</span>
+      <span class="sub">CHORD WORKSHOP</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button class="audio-toggle on" id="audioToggle" title="Toggle audio (mute / unmute)" aria-label="Toggle audio">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path class="wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path class="wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          <line class="mute-x x1" x1="23" y1="9" x2="17" y2="15"></line>
+          <line class="mute-x x2" x1="17" y1="9" x2="23" y2="15"></line>
+        </svg>
+      </button>
+      <div class="sub">v 1.0</div>
+    </div>
+  </div>
+
+  <!-- ============ KEY MODULE ============ -->
+  <div class="module">
+    <div class="mod-label">KEY</div>
+    <div class="key-controls">
+      <span class="select-wrap">
+        <select id="keyRoot" aria-label="Key root"></select>
+      </span>
+      <span class="select-wrap">
+        <select id="keyMode" aria-label="Key mode">
+          <option value="major">MAJOR</option>
+          <option value="minor">MINOR</option>
+        </select>
+      </span>
+      <button class="btn primary" id="findKeyBtn">&#9733; FIND KEY</button>
+      <span class="lcd">
+        <span class="lcd-label">FIT</span>
+        <span class="meter"><span class="meter-fill" id="confFill" style="width:0%"></span></span>
+        <span id="confText">--%</span>
+      </span>
+      <span class="lcd">
+        <span class="lcd-label">REL</span>
+        <span id="relativeText">--</span>
+      </span>
+    </div>
+    <div class="top-keys" id="topKeys"></div>
+  </div>
+
+  <!-- ============ KEYBOARD MODULE ============ -->
+  <div class="module">
+    <div class="mod-label">KEYBOARD &middot; pick a root, then a chord type</div>
+    <div class="keyboard-wrap">
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+    <div class="chord-menu" id="chordMenu">
+      <div class="chord-menu-header">
+        <div class="chord-menu-title">
+          <strong id="chordMenuNote">C</strong> chord type
+        </div>
+        <button class="chord-menu-close" id="chordMenuClose" aria-label="close">&times;</button>
+      </div>
+      <div id="chordCategories"></div>
+    </div>
+  </div>
+
+  <!-- ============ CHORD BOXES MODULE ============ -->
+  <div class="module">
+    <div class="mod-label">CHORDS &middot; tap + to add a slot, tap a slot to target it</div>
+    <div class="boxes-wrap" id="boxes"></div>
+  </div>
+
+  <!-- ============ ANALYSIS MODULE ============ -->
+  <div class="module">
+    <div class="mod-label">ANALYSIS</div>
+    <div class="analysis" id="analysis">
+      <div class="placeholder">add chords to see roman-numeral analysis...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============ THEORY ENGINE ============
+const NOTES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const FLAT_KEYS_MAJOR = ['F','Bb','Eb','Ab','Db','Gb','Cb'];
+const FLAT_KEYS_MINOR = ['D','G','C','F','Bb','Eb','Ab'];
+
+function noteName(idx, useFlats) {
+  idx = ((idx % 12) + 12) % 12;
+  return useFlats ? NOTES_FLAT[idx] : NOTES_SHARP[idx];
+}
+function shouldUseFlats(keyRoot, keyMode) {
+  const sharpName = NOTES_SHARP[keyRoot];
+  const flatName = NOTES_FLAT[keyRoot];
+  if (keyMode === 'major') return FLAT_KEYS_MAJOR.includes(sharpName) || FLAT_KEYS_MAJOR.includes(flatName);
+  return FLAT_KEYS_MINOR.includes(sharpName) || FLAT_KEYS_MINOR.includes(flatName);
+}
+
+const CHORD_TYPES = {
+  'maj':   { label: 'maj',   intervals: [0,4,7],       suffix: '',     triad: 'maj',  cat: 'Triads' },
+  'min':   { label: 'min',   intervals: [0,3,7],       suffix: 'm',    triad: 'min',  cat: 'Triads' },
+  'dim':   { label: 'dim',   intervals: [0,3,6],       suffix: '°',    triad: 'dim',  cat: 'Triads' },
+  'aug':   { label: 'aug',   intervals: [0,4,8],       suffix: '+',    triad: 'aug',  cat: 'Triads' },
+  'sus2':  { label: 'sus2',  intervals: [0,2,7],       suffix: 'sus2', triad: 'sus',  cat: 'Triads' },
+  'sus4':  { label: 'sus4',  intervals: [0,5,7],       suffix: 'sus4', triad: 'sus',  cat: 'Triads' },
+  '7':     { label: '7',     intervals: [0,4,7,10],    suffix: '7',    triad: 'maj',  cat: 'Sevenths' },
+  'maj7':  { label: 'maj7',  intervals: [0,4,7,11],    suffix: 'maj7', triad: 'maj',  cat: 'Sevenths' },
+  'm7':    { label: 'm7',    intervals: [0,3,7,10],    suffix: 'm7',   triad: 'min',  cat: 'Sevenths' },
+  'm7b5':  { label: 'm7♭5', intervals: [0,3,6,10],suffix: 'm7♭5', triad: 'dim', cat: 'Sevenths' },
+  'dim7':  { label: 'dim7',  intervals: [0,3,6,9],     suffix: '°7',   triad: 'dim',  cat: 'Sevenths' },
+  '6':     { label: '6',     intervals: [0,4,7,9],     suffix: '6',    triad: 'maj',  cat: 'Sixths' },
+  'm6':    { label: 'm6',    intervals: [0,3,7,9],     suffix: 'm6',   triad: 'min',  cat: 'Sixths' },
+  'add9':  { label: 'add9',  intervals: [0,4,7,14],    suffix: 'add9', triad: 'maj',  cat: 'Extensions' },
+  '9':     { label: '9',     intervals: [0,4,7,10,14], suffix: '9',    triad: 'maj',  cat: 'Extensions' },
+  'maj9':  { label: 'maj9',  intervals: [0,4,7,11,14], suffix: 'maj9', triad: 'maj',  cat: 'Extensions' },
+  'm9':    { label: 'm9',    intervals: [0,3,7,10,14], suffix: 'm9',   triad: 'min',  cat: 'Extensions' },
+};
+const CHORD_CATEGORIES = ['Triads','Sevenths','Sixths','Extensions'];
+
+const MAJOR_SCALE = [0,2,4,5,7,9,11];
+const MINOR_SCALE = [0,2,3,5,7,8,10];
+const MAJOR_QUALITIES = ['maj','min','min','maj','maj','min','dim'];
+const MINOR_QUALITIES = ['min','dim','maj','min','min','maj','maj'];
+const ROMAN_UPPER = ['I','II','III','IV','V','VI','VII'];
+const ROMAN_LOWER = ['i','ii','iii','iv','v','vi','vii'];
+
+function chordName(rootIdx, typeKey, useFlats) {
+  return noteName(rootIdx, useFlats) + CHORD_TYPES[typeKey].suffix;
+}
+function formatRoman(degree, triadQuality, accidental) {
+  accidental = accidental || '';
+  let base = (triadQuality === 'maj' || triadQuality === 'aug' || triadQuality === 'sus')
+    ? ROMAN_UPPER[degree] : ROMAN_LOWER[degree];
+  let suffix = '';
+  if (triadQuality === 'dim') suffix = '°';
+  else if (triadQuality === 'aug') suffix = '+';
+  return accidental + base + suffix;
+}
+function chromaticRoman(interval, mode) {
+  const major = {
+    0:{d:0,a:''},  1:{d:1,a:'♭'}, 2:{d:1,a:''},  3:{d:2,a:'♭'},
+    4:{d:2,a:''},  5:{d:3,a:''},      6:{d:3,a:'♯'}, 7:{d:4,a:''},
+    8:{d:5,a:'♭'}, 9:{d:5,a:''}, 10:{d:6,a:'♭'}, 11:{d:6,a:''},
+  };
+  const minor = {
+    0:{d:0,a:''},  1:{d:1,a:'♭'}, 2:{d:1,a:''},  3:{d:2,a:''},
+    4:{d:2,a:'♯'}, 5:{d:3,a:''},  6:{d:3,a:'♯'}, 7:{d:4,a:''},
+    8:{d:5,a:''},  9:{d:5,a:'♮'}, 10:{d:6,a:''}, 11:{d:6,a:'♮'},
+  };
+  return (mode === 'major' ? major : minor)[interval];
+}
+
+function analyzeChord(chordRoot, chordType, keyRoot, keyMode) {
+  const interval = ((chordRoot - keyRoot) % 12 + 12) % 12;
+  const scale = keyMode === 'major' ? MAJOR_SCALE : MINOR_SCALE;
+  const diatonicQuals = keyMode === 'major' ? MAJOR_QUALITIES : MINOR_QUALITIES;
+  const triad = CHORD_TYPES[chordType].triad;
+
+  const cr = chromaticRoman(interval, keyMode);
+  let roman = formatRoman(cr.d, triad, cr.a);
+
+  let ext = '';
+  if (chordType === '7' || chordType === 'm7' || chordType === 'dim7') ext = '⁷';
+  else if (chordType === 'maj7') ext = 'M⁷';
+  else if (chordType === 'm7b5') ext = 'ø⁷';
+  else if (chordType === '6' || chordType === 'm6') ext = '⁶';
+  else if (chordType === '9' || chordType === 'm9') ext = '⁹';
+  else if (chordType === 'maj9') ext = 'M⁹';
+  else if (chordType === 'add9') ext = 'ᵃᵈᵈ9';
+  roman = roman + ext;
+
+  const inScale = scale.includes(interval);
+  let category = 'chromatic';
+  let detail = '';
+
+  if (inScale) {
+    const degree = scale.indexOf(interval);
+    if (triad === diatonicQuals[degree]) { category = 'diatonic'; }
+    else { category = 'modal-mixture'; detail = 'altered quality'; }
+  } else {
+    const parallelScale = keyMode === 'major' ? MINOR_SCALE : MAJOR_SCALE;
+    const parallelQuals = keyMode === 'major' ? MINOR_QUALITIES : MAJOR_QUALITIES;
+    if (parallelScale.includes(interval)) {
+      const pdeg = parallelScale.indexOf(interval);
+      if (triad === parallelQuals[pdeg]) {
+        category = 'borrowed';
+        detail = 'from parallel ' + (keyMode === 'major' ? 'minor' : 'major');
+      }
+    }
+  }
+
+  const eligibleForSecdom = (category === 'modal-mixture' || category === 'chromatic');
+  if (eligibleForSecdom && triad === 'maj' && (chordType === 'maj' || chordType === '7' || chordType === '9')) {
+    const targetInterval = (interval + 5) % 12;
+    if (scale.includes(targetInterval) && targetInterval !== 0 && interval !== scale[4]) {
+      const tdeg = scale.indexOf(targetInterval);
+      const tq = diatonicQuals[tdeg];
+      const tr = formatRoman(tdeg, tq);
+      category = 'secondary-dom';
+      detail = 'V/' + tr;
+      roman = 'V' + (chordType === '7' ? '⁷' : chordType === '9' ? '⁹' : '') + '/' + tr;
+    }
+  }
+  if ((category === 'chromatic' || category === 'modal-mixture') &&
+      (chordType === 'dim7' || chordType === 'm7b5')) {
+    const targetInterval = (interval + 1) % 12;
+    if (scale.includes(targetInterval) && targetInterval !== 0) {
+      const tdeg = scale.indexOf(targetInterval);
+      const tq = diatonicQuals[tdeg];
+      const tr = formatRoman(tdeg, tq);
+      category = 'secondary-dom';
+      detail = 'vii°/' + tr;
+      roman = 'vii°' + (chordType === 'dim7' ? '⁷' : 'ø⁷') + '/' + tr;
+    }
+  }
+
+  return { roman, category, detail, interval };
+}
+
+function chordPreferFlats(chordRoot, keyRoot, keyMode) {
+  const interval = ((chordRoot - keyRoot) % 12 + 12) % 12;
+  const cr = chromaticRoman(interval, keyMode);
+  if (cr.a === '♭') return true;
+  if (cr.a === '♯') return false;
+  return shouldUseFlats(keyRoot, keyMode);
+}
+
+function scoreKey(chords, keyRoot, keyMode) {
+  if (chords.length === 0) return { score: 0, details: [] };
+  let score = 0;
+  const details = [];
+  for (const ch of chords) {
+    const a = analyzeChord(ch.root, ch.type, keyRoot, keyMode);
+    let chScore = 0;
+    if (a.category === 'diatonic') chScore = 10;
+    else if (a.category === 'secondary-dom') chScore = 7;
+    else if (a.category === 'borrowed') chScore = 5;
+    else if (a.category === 'modal-mixture') chScore = 4;
+    else chScore = 1;
+    score += chScore;
+    details.push(Object.assign({ chord: ch, score: chScore }, a));
+  }
+  const firstInterval = ((chords[0].root - keyRoot) % 12 + 12) % 12;
+  const lastInterval = ((chords[chords.length-1].root - keyRoot) % 12 + 12) % 12;
+  if (firstInterval === 0) score += 3;
+  if (lastInterval === 0) score += 3;
+  if (chords.length >= 2) {
+    for (let i = 1; i < chords.length; i++) {
+      const prev = ((chords[i-1].root - keyRoot) % 12 + 12) % 12;
+      const cur = ((chords[i].root - keyRoot) % 12 + 12) % 12;
+      const prevTriad = CHORD_TYPES[chords[i-1].type].triad;
+      if (cur === 0 && prev === 7 && prevTriad === 'maj') score += 2;
+    }
+  }
+  return { score, details };
+}
+function findBestKey(chords) {
+  if (chords.length === 0) return null;
+  const results = [];
+  for (let root = 0; root < 12; root++) {
+    for (const mode of ['major','minor']) {
+      const r = scoreKey(chords, root, mode);
+      results.push(Object.assign({ root, mode }, r));
+    }
+  }
+  results.sort((a,b) => b.score - a.score);
+  const maxPossible = chords.length * 10 + 6 + 2*Math.max(0, chords.length-1);
+  return {
+    best: results[0],
+    top3: results.slice(0, 3),
+    confidence: results[0].score / maxPossible,
+  };
+}
+function relativeKey(keyRoot, keyMode) {
+  if (keyMode === 'major') return { root: (keyRoot + 9) % 12, mode: 'minor' };
+  return { root: (keyRoot + 3) % 12, mode: 'major' };
+}
+
+// ============ AUDIO ENGINE ============
+let audioCtx = null;
+let audioEnabled = true;
+let activeAudioNodes = [];
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    audioCtx = new Ctor();
+  }
+  return audioCtx;
+}
+function midiToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+function stopActiveAudio() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  activeAudioNodes.forEach(({ osc, gain }) => {
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.stop(now + 0.1);
+    } catch (e) {}
+  });
+  activeAudioNodes = [];
+}
+
+function playChord(rootIdx, typeKey) {
+  if (!audioEnabled) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  stopActiveAudio();
+
+  const intervals = CHORD_TYPES[typeKey].intervals;
+  // Place root in a comfortable mid-range octave (C3 ≈ MIDI 48). Pick octave so root falls near middle.
+  const baseMidi = 48 + rootIdx; // C3=48 for root=C, up through B3=59
+  const now = ctx.currentTime;
+  const dur = 1.4;
+  const release = 0.7;
+
+  // Master envelope
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0, now);
+  master.gain.linearRampToValueAtTime(1.0, now + 0.012);                  // attack
+  master.gain.linearRampToValueAtTime(0.85, now + 0.012 + 0.18);          // decay → sustain
+  master.gain.setValueAtTime(0.85, now + dur);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + dur + release);
+  master.connect(ctx.destination);
+
+  // Per-note gain scaled so chord doesn't clip; 2 oscillators per note for richness
+  const perNote = 0.16 / Math.sqrt(intervals.length);
+
+  intervals.forEach((iv, i) => {
+    const freq = midiToFreq(baseMidi + iv);
+    [
+      { type: 'triangle', detune: 0,  gain: perNote },
+      { type: 'sine',     detune: 6,  gain: perNote * 0.55 },
+    ].forEach(({ type, detune, gain }) => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.detune.value = detune;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      osc.connect(g);
+      g.connect(master);
+      osc.start(now);
+      osc.stop(now + dur + release + 0.05);
+      activeAudioNodes.push({ osc, gain: g });
+    });
+  });
+}
+
+// ============ STATE ============
+const state = {
+  keyRoot: 0,    // C
+  keyMode: 'major',
+  chords: [],    // [{root, type}]
+  selectedBoxIdx: null,
+  chordMenuOpenFor: null, // note index 0-11
+};
+
+// ============ DOM ============
+const keyRootSel = document.getElementById('keyRoot');
+const keyModeSel = document.getElementById('keyMode');
+const findKeyBtn = document.getElementById('findKeyBtn');
+const confFill = document.getElementById('confFill');
+const confText = document.getElementById('confText');
+const relativeText = document.getElementById('relativeText');
+const topKeys = document.getElementById('topKeys');
+const keyboardEl = document.getElementById('keyboard');
+const chordMenu = document.getElementById('chordMenu');
+const chordMenuNote = document.getElementById('chordMenuNote');
+const chordMenuClose = document.getElementById('chordMenuClose');
+const chordCategoriesEl = document.getElementById('chordCategories');
+const boxesEl = document.getElementById('boxes');
+const analysisEl = document.getElementById('analysis');
+const audioToggleBtn = document.getElementById('audioToggle');
+
+audioToggleBtn.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  audioToggleBtn.classList.toggle('on', audioEnabled);
+  audioToggleBtn.classList.toggle('off', !audioEnabled);
+  audioToggleBtn.title = audioEnabled ? 'Mute audio' : 'Unmute audio';
+  if (!audioEnabled) stopActiveAudio();
+});
+
+// ============ KEY SELECTOR ============
+function populateKeyRoot() {
+  const flats = shouldUseFlats(state.keyRoot, state.keyMode);
+  keyRootSel.innerHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = noteName(i, flats);
+    if (i === state.keyRoot) opt.selected = true;
+    keyRootSel.appendChild(opt);
+  }
+}
+keyRootSel.addEventListener('change', () => {
+  state.keyRoot = parseInt(keyRootSel.value);
+  populateKeyRoot();
+  render();
+});
+keyModeSel.addEventListener('change', () => {
+  state.keyMode = keyModeSel.value;
+  populateKeyRoot();
+  render();
+});
+
+// ============ KEYBOARD ============
+const WHITE_KEYS = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+const BLACK_KEYS = [
+  { note: 1,  whitePos: 0 }, // C# between C and D
+  { note: 3,  whitePos: 1 }, // D# between D and E
+  { note: 6,  whitePos: 3 }, // F# between F and G
+  { note: 8,  whitePos: 4 }, // G# between G and A
+  { note: 10, whitePos: 5 }, // A# between A and B
+];
+function buildKeyboard() {
+  keyboardEl.innerHTML = '';
+  const flats = shouldUseFlats(state.keyRoot, state.keyMode);
+  WHITE_KEYS.forEach((noteIdx, i) => {
+    const k = document.createElement('div');
+    k.className = 'key-white';
+    k.dataset.note = noteIdx;
+    k.textContent = noteName(noteIdx, flats);
+    k.addEventListener('click', () => openChordMenu(noteIdx));
+    keyboardEl.appendChild(k);
+  });
+  BLACK_KEYS.forEach(({ note, whitePos }) => {
+    const k = document.createElement('div');
+    k.className = 'key-black';
+    k.dataset.note = note;
+    k.textContent = noteName(note, flats);
+    // position: each white key is 1/7 of width; black key is centered between two whites
+    // black key width is 7%, centered at (whitePos+1) * (100/7) - 3.5%
+    const centerPct = (whitePos + 1) * (100 / 7);
+    k.style.left = `calc(${centerPct}% - 3.5%)`;
+    k.addEventListener('click', (e) => { e.stopPropagation(); openChordMenu(note); });
+    keyboardEl.appendChild(k);
+  });
+}
+function highlightKey(noteIdx) {
+  keyboardEl.querySelectorAll('.key-white, .key-black').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.note) === noteIdx);
+  });
+}
+
+// ============ CHORD MENU ============
+function openChordMenu(noteIdx) {
+  state.chordMenuOpenFor = noteIdx;
+  highlightKey(noteIdx);
+  const flats = shouldUseFlats(state.keyRoot, state.keyMode);
+  chordMenuNote.textContent = noteName(noteIdx, flats);
+  chordCategoriesEl.innerHTML = '';
+  CHORD_CATEGORIES.forEach(cat => {
+    const wrap = document.createElement('div');
+    wrap.className = 'chord-category';
+    const label = document.createElement('div');
+    label.className = 'chord-category-label';
+    label.textContent = cat;
+    wrap.appendChild(label);
+    const opts = document.createElement('div');
+    opts.className = 'chord-options';
+    Object.entries(CHORD_TYPES).filter(([k,v]) => v.cat === cat).forEach(([k, v]) => {
+      const btn = document.createElement('button');
+      btn.className = 'chord-option';
+      btn.textContent = noteName(noteIdx, flats) + v.suffix;
+      btn.addEventListener('click', () => {
+        playChord(noteIdx, k);
+        addOrReplaceChord(noteIdx, k);
+        closeChordMenu();
+      });
+      opts.appendChild(btn);
+    });
+    wrap.appendChild(opts);
+    chordCategoriesEl.appendChild(wrap);
+  });
+  chordMenu.classList.add('open');
+  chordMenu.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeChordMenu() {
+  state.chordMenuOpenFor = null;
+  chordMenu.classList.remove('open');
+  keyboardEl.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+}
+chordMenuClose.addEventListener('click', closeChordMenu);
+
+// ============ CHORD BOXES ============
+function addOrReplaceChord(root, type) {
+  const newChord = { root, type };
+  if (state.selectedBoxIdx !== null && state.selectedBoxIdx < state.chords.length) {
+    state.chords[state.selectedBoxIdx] = newChord;
+  } else {
+    state.chords.push(newChord);
+    state.selectedBoxIdx = state.chords.length - 1;
+  }
+  render();
+}
+function removeChord(idx) {
+  state.chords.splice(idx, 1);
+  if (state.selectedBoxIdx === idx) state.selectedBoxIdx = null;
+  else if (state.selectedBoxIdx !== null && state.selectedBoxIdx > idx) state.selectedBoxIdx--;
+  render();
+}
+function selectBox(idx) {
+  state.selectedBoxIdx = (state.selectedBoxIdx === idx) ? null : idx;
+  render();
+}
+function addEmptyBox() {
+  // Add an empty placeholder — but our model only stores filled chords.
+  // Instead: just select "append" mode by clearing selection so next chord pick appends.
+  // Actually for clearer UX, add a visible empty placeholder:
+  state.chords.push(null);
+  state.selectedBoxIdx = state.chords.length - 1;
+  render();
+}
+
+function buildBoxes() {
+  boxesEl.innerHTML = '';
+  state.chords.forEach((ch, idx) => {
+    const box = document.createElement('div');
+    box.className = 'box';
+    if (!ch) box.classList.add('empty');
+    if (state.selectedBoxIdx === idx) box.classList.add('selected');
+
+    const num = document.createElement('div');
+    num.className = 'box-num';
+    num.textContent = String(idx + 1).padStart(2, '0');
+    box.appendChild(num);
+
+    const remove = document.createElement('button');
+    remove.className = 'box-remove';
+    remove.textContent = '×';
+    remove.title = 'Remove';
+    remove.addEventListener('click', (e) => { e.stopPropagation(); removeChord(idx); });
+    box.appendChild(remove);
+
+    const chordEl = document.createElement('div');
+    chordEl.className = 'box-chord';
+    if (ch) {
+      const flats = chordPreferFlats(ch.root, state.keyRoot, state.keyMode);
+      chordEl.textContent = chordName(ch.root, ch.type, flats);
+    } else {
+      chordEl.textContent = 'empty';
+    }
+    box.appendChild(chordEl);
+
+    if (ch) {
+      const a = analyzeChord(ch.root, ch.type, state.keyRoot, state.keyMode);
+      const roman = document.createElement('div');
+      roman.className = 'box-roman';
+      roman.textContent = a.roman;
+      box.appendChild(roman);
+
+      const cat = document.createElement('div');
+      cat.className = 'box-cat ' + a.category;
+      cat.textContent = a.category === 'diatonic' ? 'diatonic'
+        : a.category === 'borrowed' ? 'borrowed'
+        : a.category === 'secondary-dom' ? 'sec. dom'
+        : a.category === 'modal-mixture' ? 'mixture'
+        : 'chromatic';
+      box.appendChild(cat);
+    }
+
+    box.addEventListener('click', () => {
+      if (ch) playChord(ch.root, ch.type);
+      selectBox(idx);
+    });
+    boxesEl.appendChild(box);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-box';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add empty slot';
+  addBtn.addEventListener('click', addEmptyBox);
+  boxesEl.appendChild(addBtn);
+}
+
+// ============ ANALYSIS ============
+function buildAnalysis() {
+  const filled = state.chords.filter(c => c);
+  if (filled.length === 0) {
+    analysisEl.innerHTML = '<div class="placeholder">add chords to see roman-numeral analysis...</div>';
+    return;
+  }
+
+  // Roman flow
+  const romans = filled.map(c => analyzeChord(c.root, c.type, state.keyRoot, state.keyMode));
+  const flow = romans.map(r => `<span class="roman-flow">${r.roman}</span>`).join('<span class="arrow"> &rarr; </span>');
+
+  // Counts
+  const diatonic = romans.filter(r => r.category === 'diatonic').length;
+  const borrowed = romans.filter(r => r.category === 'borrowed').length;
+  const secdom = romans.filter(r => r.category === 'secondary-dom').length;
+  const mixture = romans.filter(r => r.category === 'modal-mixture').length;
+  const chromatic = romans.filter(r => r.category === 'chromatic').length;
+  const total = romans.length;
+  const inKeyClass = diatonic === total ? 'count-good' : 'count-warn';
+
+  // Key name
+  const useFlats = shouldUseFlats(state.keyRoot, state.keyMode);
+  const keyDisplay = `${noteName(state.keyRoot, useFlats)} ${state.keyMode}`;
+
+  // Relative
+  const rel = relativeKey(state.keyRoot, state.keyMode);
+  const relFlats = shouldUseFlats(rel.root, rel.mode);
+  const relDisplay = `${noteName(rel.root, relFlats)} ${rel.mode}`;
+
+  // Build breakdown of non-diatonic chords with their distance
+  const oddities = [];
+  romans.forEach((r, i) => {
+    if (r.category !== 'diatonic') {
+      const ch = filled[i];
+      const flats = chordPreferFlats(ch.root, state.keyRoot, state.keyMode);
+      oddities.push(`<strong style="color:var(--text)">${chordName(ch.root, ch.type, flats)}</strong> = ${r.roman} <span style="color:var(--text-faint)">(${r.category}${r.detail ? ': ' + r.detail : ''})</span>`);
+    }
+  });
+
+  let html = '';
+  html += `<div class="line"><span class="tag">key</span> <span class="key-name">${keyDisplay}</span> <span style="color:var(--text-faint)">&middot; relative <span class="relative">${relDisplay}</span></span></div>`;
+  html += `<div class="line"><span class="tag">flow</span> ${flow}</div>`;
+  html += `<div class="line"><span class="tag">in key</span> <span class="${inKeyClass}">${diatonic}/${total}</span> diatonic`;
+  if (borrowed) html += `<span style="color:var(--blue)">, ${borrowed} borrowed</span>`;
+  if (secdom)   html += `<span style="color:var(--amber-bright)">, ${secdom} secondary dom</span>`;
+  if (mixture)  html += `<span style="color:var(--amber)">, ${mixture} mixture</span>`;
+  if (chromatic) html += `<span style="color:var(--red)">, ${chromatic} chromatic</span>`;
+  html += `</div>`;
+  if (oddities.length > 0) {
+    html += `<div class="line"><span class="tag">non-key</span> ${oddities.join(' &middot; ')}</div>`;
+  }
+
+  analysisEl.innerHTML = html;
+}
+
+// ============ FIND KEY ============
+findKeyBtn.addEventListener('click', () => {
+  const filled = state.chords.filter(c => c);
+  if (filled.length === 0) {
+    analysisEl.innerHTML = '<div class="placeholder">need at least one chord to detect a key</div>';
+    return;
+  }
+  const result = findBestKey(filled);
+  state.keyRoot = result.best.root;
+  state.keyMode = result.best.mode;
+  keyModeSel.value = state.keyMode;
+  populateKeyRoot();
+  render();
+});
+
+function renderConfidence() {
+  const filled = state.chords.filter(c => c);
+  if (filled.length === 0) {
+    confFill.style.width = '0%';
+    confText.textContent = '--%';
+    relativeText.textContent = '--';
+    topKeys.innerHTML = '';
+    return;
+  }
+  // Score current key against chords
+  const cur = scoreKey(filled, state.keyRoot, state.keyMode);
+  const maxPossible = filled.length * 10 + 6 + 2*Math.max(0, filled.length-1);
+  const pct = Math.max(0, Math.min(100, Math.round((cur.score / maxPossible) * 100)));
+  confFill.style.width = pct + '%';
+  confText.textContent = pct + '%';
+
+  const rel = relativeKey(state.keyRoot, state.keyMode);
+  const relFlats = shouldUseFlats(rel.root, rel.mode);
+  relativeText.textContent = noteName(rel.root, relFlats) + ' ' + (rel.mode === 'major' ? 'MAJ' : 'MIN');
+
+  // top 3 keys
+  const all = findBestKey(filled);
+  topKeys.innerHTML = '';
+  all.top3.forEach((k, i) => {
+    const el = document.createElement('span');
+    el.className = 'top-key' + (i === 0 ? ' best' : '');
+    const flats = shouldUseFlats(k.root, k.mode);
+    el.textContent = `${i === 0 ? '★ ' : ''}${noteName(k.root, flats)} ${k.mode === 'major' ? 'maj' : 'min'} · ${k.score}`;
+    topKeys.appendChild(el);
+  });
+}
+
+// ============ MAIN RENDER ============
+function render() {
+  populateKeyRoot();
+  keyModeSel.value = state.keyMode;
+  buildKeyboard();
+  buildBoxes();
+  buildAnalysis();
+  renderConfidence();
+}
+
+// ============ INIT ============
+populateKeyRoot();
+buildKeyboard();
+buildBoxes();
+buildAnalysis();
+renderConfidence();
+
+// Close chord menu on outside click
+document.addEventListener('click', (e) => {
+  if (!chordMenu.classList.contains('open')) return;
+  if (chordMenu.contains(e.target)) return;
+  if (e.target.closest('.key-white') || e.target.closest('.key-black')) return;
+  closeChordMenu();
+});
+</script>
+</body>
+</html>

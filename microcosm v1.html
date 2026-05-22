@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Microcosm — v1</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #11161f;
+    --panel-2: #161c27;
+    --border: #1f2733;
+    --text: #cfd6e0;
+    --text-dim: #6a7686;
+    --accent: #5fff8a;
+    --accent-dim: #2d8a4a;
+    --warn: #ff7755;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    height: 100%;
+    overflow: hidden;
+  }
+  #app {
+    display: grid;
+    grid-template-rows: 44px 1fr;
+    height: 100vh;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    font-weight: normal;
+  }
+  header .spacer { flex: 1; }
+  .btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.1s;
+  }
+  .btn:hover { background: var(--border); color: var(--accent); }
+  .btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+  .btn-group { display: flex; gap: 4px; }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    overflow: hidden;
+  }
+  #dish-wrap {
+    position: relative;
+    background: #06090d;
+    overflow: hidden;
+  }
+  #dish {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #extinct-msg {
+    display: none;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    padding: 24px 32px;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-align: center;
+  }
+  #extinct-msg.show { display: block; }
+  #extinct-msg .small {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 8px;
+    letter-spacing: 0.1em;
+  }
+  #inspector {
+    position: absolute;
+    display: none;
+    background: rgba(10, 14, 20, 0.94);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    pointer-events: none;
+    border-radius: 3px;
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+  #inspector.show { display: block; }
+  #inspector .lineage-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10px; letter-spacing: 0.18em;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  #inspector .lineage-head .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  #inspector .group {
+    border-top: 1px solid var(--border);
+    padding-top: 6px; margin-top: 6px;
+  }
+  #inspector .group:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  #inspector .group .gh {
+    color: var(--text-dim); font-size: 9px;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  #inspector .row {
+    display: flex; justify-content: space-between;
+    gap: 12px;
+  }
+  #inspector .row .k { color: var(--text-dim); }
+  #inspector .row .v { color: var(--text); font-variant-numeric: tabular-nums; }
+  aside {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+  .section h2 {
+    margin: 0 0 10px 0;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: normal;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .stat-row .label { color: var(--text-dim); }
+  .stat-row .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .control {
+    margin: 8px 0;
+  }
+  .control label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  .control label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .control input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    background: var(--panel-2);
+    height: 4px;
+  }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 0;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .toggle input { accent-color: var(--accent); cursor: pointer; }
+  .sparkline {
+    display: block;
+    width: 100%;
+    height: 36px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    margin-top: 4px;
+    border-radius: 2px;
+  }
+  .trait-block { margin-bottom: 10px; }
+  .trait-block .head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .trait-block .head .v { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .legend {
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>MICROCOSM</h1>
+    <div class="btn-group">
+      <button class="btn" id="btn-pause">PAUSE</button>
+      <button class="btn" id="btn-reset">RESET</button>
+    </div>
+    <div class="btn-group">
+      <button class="btn active" data-speed="1">1×</button>
+      <button class="btn" data-speed="5">5×</button>
+      <button class="btn" data-speed="25">25×</button>
+    </div>
+    <div class="spacer"></div>
+    <div style="color: var(--text-dim); font-size: 10px; letter-spacing: 0.15em;">v1 · SIM MODE</div>
+  </header>
+  <main>
+    <div id="dish-wrap">
+      <canvas id="dish"></canvas>
+      <div id="inspector"></div>
+      <div id="overlay">
+        <div id="extinct-msg">
+          EXTINCT
+          <div class="small">all cells perished · press RESET</div>
+        </div>
+      </div>
+    </div>
+    <aside>
+      <div class="section">
+        <h2>State</h2>
+        <div class="stat-row"><span class="label">generation</span><span class="value" id="s-gen">1</span></div>
+        <div class="stat-row"><span class="label">population</span><span class="value" id="s-pop">0</span></div>
+        <div class="stat-row"><span class="label">food</span><span class="value" id="s-food">0</span></div>
+        <div class="stat-row"><span class="label">oldest age</span><span class="value" id="s-age">0</span></div>
+        <div class="stat-row"><span class="label">predation events</span><span class="value" id="s-preda">0</span></div>
+        <div class="stat-row"><span class="label">ticks</span><span class="value" id="s-tick">0</span></div>
+      </div>
+
+      <div class="section">
+        <h2>Trait Drift (live)</h2>
+        <div class="trait-block">
+          <div class="head"><span>size (radius)</span><span class="v" id="s-size">—</span></div>
+          <canvas class="sparkline" id="spark-size"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>speed</span><span class="v" id="s-speed">—</span></div>
+          <canvas class="sparkline" id="spark-speed"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>sensor range</span><span class="v" id="s-sensor">—</span></div>
+          <canvas class="sparkline" id="spark-sensor"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>predation drive</span><span class="v" id="s-predavg">—</span></div>
+          <canvas class="sparkline" id="spark-predation"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>toxin resistance</span><span class="v" id="s-resavg">—</span></div>
+          <canvas class="sparkline" id="spark-resistance"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>population</span><span class="v" id="s-popavg">—</span></div>
+          <canvas class="sparkline" id="spark-pop"></canvas>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Environment</h2>
+        <div class="control">
+          <label>food spawn rate <span class="val" id="v-food">1.0</span></label>
+          <input type="range" id="r-food" min="0" max="3" step="0.05" value="1.0">
+        </div>
+        <div class="control">
+          <label>mutation rate <span class="val" id="v-mut">0.25</span></label>
+          <input type="range" id="r-mut" min="0" max="1" step="0.01" value="0.25">
+        </div>
+        <div class="control">
+          <label>max population <span class="val" id="v-max">200</span></label>
+          <input type="range" id="r-max" min="20" max="500" step="10" value="200">
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="t-sensors"> show sensor ranges
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="t-trails"> motion trails
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="t-toxin"> show toxin field
+        </label>
+      </div>
+
+      <div class="legend">
+        cells graze food or hunt smaller cells. metabolism scales by volume (square-cube), uptake by surface (diffusion), movement by stokes drag. waste accumulates locally; sit in your own toxin and you die. watch which strategies persist.
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS & TRAIT RANGES
+// ============================================================
+const TRAIT_RANGES = {
+  size:            { min: 2.5, max: 9.0 },
+  speed:           { min: 0.3, max: 2.5 },
+  sensorRange:     { min: 15,  max: 140 },
+  predationDrive:  { min: 0.0, max: 1.0 },   // 0 = pure grazer, 1 = pure hunter
+  toxinResistance: { min: 0.0, max: 1.0 },   // costs energy to maintain
+};
+
+const START_ENERGY = 100;
+const DIVISION_THRESHOLD = 200;
+const CHILD_ENERGY = 85;        // each child after split (parent had 200, kids get 85+85, lose 30 to division cost)
+const FOOD_ENERGY = 50;         // energy held by a fresh food pellet (drained via diffusion)
+const INITIAL_POPULATION = 30;
+const HISTORY_SAMPLE_INTERVAL = 30; // sample stats every N ticks
+const HISTORY_LENGTH = 200;          // keep last N samples in sparklines
+
+// Toxin field
+const TOXIN_CELL_SIZE = 32;     // px per grid cell
+const TOXIN_DECAY = 0.997;      // per tick → half-life ~230 ticks
+const TOXIN_EMIT_RATE = 0.06;   // fraction of metabolic cost excreted as toxin
+const TOXIN_DAMAGE_RATE = 0.004;// damage per unit local toxin per tick
+const PREDATION_SIZE_RATIO = 1.2; // must be at least 1.2x bigger to engulf
+const FOOD_UPTAKE_PER_SIZE = 2.0; // diffusion uptake: size * this per tick
+
+// ============================================================
+// HELPERS
+// ============================================================
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+
+// Golden-angle hue distribution so consecutive lineageIds look maximally different
+const GOLDEN_ANGLE = 137.508;
+const lineageHue = (id) => (id * GOLDEN_ANGLE) % 360;
+
+function randomTraits() {
+  return {
+    size: rand(TRAIT_RANGES.size.min, TRAIT_RANGES.size.max),
+    speed: rand(TRAIT_RANGES.speed.min, TRAIT_RANGES.speed.max),
+    sensorRange: rand(TRAIT_RANGES.sensorRange.min, TRAIT_RANGES.sensorRange.max),
+    predationDrive: rand(0, 1),
+    toxinResistance: rand(0, 1),
+  };
+}
+
+// ============================================================
+// CELL
+// ============================================================
+class Cell {
+  constructor(x, y, traits, generation = 1, lineageId = 0) {
+    this.x = x; this.y = y;
+    this.heading = Math.random() * Math.PI * 2;
+    this.size = traits.size;
+    this.speed = traits.speed;
+    this.sensorRange = traits.sensorRange;
+    this.predationDrive = traits.predationDrive;
+    this.toxinResistance = traits.toxinResistance;
+    this.lineageId = lineageId;
+    this.hue = lineageHue(lineageId);
+    this.energy = START_ENERGY;
+    this.age = 0;
+    this.generation = generation;
+    this.dead = false;
+    this.trail = [];
+  }
+
+  step(sim) {
+    // Wrap-aware relative position helper
+    const wrapDelta = (ox, oy) => {
+      let dx = ox - this.x, dy = oy - this.y;
+      if (dx >  sim.width  / 2) dx -= sim.width;
+      if (dx < -sim.width  / 2) dx += sim.width;
+      if (dy >  sim.height / 2) dy -= sim.height;
+      if (dy < -sim.height / 2) dy += sim.height;
+      return [dx, dy];
+    };
+
+    // ----- Sense (food and prey, weighted by predationDrive) -----
+    let target = null;
+    let bestScore = 0;
+    const grazingBias = 1 - this.predationDrive;
+    const huntingBias = this.predationDrive;
+
+    if (grazingBias > 0.01) {
+      for (const food of sim.food) {
+        const [dx, dy] = wrapDelta(food.x, food.y);
+        const d = Math.hypot(dx, dy);
+        if (d > this.sensorRange) continue;
+        const score = grazingBias * (1 - d / this.sensorRange);
+        if (score > bestScore) { bestScore = score; target = { x: this.x + dx, y: this.y + dy }; }
+      }
+    }
+    if (huntingBias > 0.01) {
+      for (const other of sim.cells) {
+        if (other === this || other.dead) continue;
+        if (this.size <= other.size * PREDATION_SIZE_RATIO) continue;
+        const [dx, dy] = wrapDelta(other.x, other.y);
+        const d = Math.hypot(dx, dy);
+        if (d > this.sensorRange) continue;
+        const score = huntingBias * (1 - d / this.sensorRange);
+        if (score > bestScore) { bestScore = score; target = { x: this.x + dx, y: this.y + dy }; }
+      }
+    }
+
+    // ----- Steer (turn amount tracked for low-Re cost) -----
+    const prevHeading = this.heading;
+    if (target) {
+      const dx = target.x - this.x, dy = target.y - this.y;
+      const targetHeading = Math.atan2(dy, dx);
+      let dh = targetHeading - this.heading;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      this.heading += clamp(dh, -0.15, 0.15);
+    } else {
+      this.heading += (Math.random() - 0.5) * 0.25;
+    }
+    let turnAmt = Math.abs(this.heading - prevHeading);
+    if (turnAmt > Math.PI) turnAmt = Math.PI * 2 - turnAmt;
+
+    // ----- Move (low-Re: no inertia, v = speed * heading) -----
+    this.x += Math.cos(this.heading) * this.speed;
+    this.y += Math.sin(this.heading) * this.speed;
+    if (this.x < 0) this.x += sim.width;
+    if (this.x >= sim.width) this.x -= sim.width;
+    if (this.y < 0) this.y += sim.height;
+    if (this.y >= sim.height) this.y -= sim.height;
+
+    // Trail
+    if (sim.showTrails) {
+      this.trail.push([this.x, this.y]);
+      if (this.trail.length > 12) this.trail.shift();
+    } else if (this.trail.length) {
+      this.trail.length = 0;
+    }
+
+    // ----- Eat food (diffusion-limited: uptake ∝ surface, so size) -----
+    for (let i = sim.food.length - 1; i >= 0; i--) {
+      const f = sim.food[i];
+      const [dx, dy] = wrapDelta(f.x, f.y);
+      if (Math.hypot(dx, dy) < this.size + 2.5) {
+        const uptake = Math.min(this.size * FOOD_UPTAKE_PER_SIZE, f.energy);
+        this.energy += uptake;
+        f.energy -= uptake;
+        if (f.energy <= 0) sim.food.splice(i, 1);
+      }
+    }
+
+    // ----- Predation (engulf any cell ≥1.2x smaller on contact) -----
+    for (const other of sim.cells) {
+      if (other === this || other.dead) continue;
+      if (this.size <= other.size * PREDATION_SIZE_RATIO) continue;
+      const [dx, dy] = wrapDelta(other.x, other.y);
+      if (Math.hypot(dx, dy) < this.size + other.size * 0.7) {
+        // Engulf: gain prey's current energy + biomass
+        this.energy += other.energy + other.size * other.size * 6;
+        other.dead = true;
+        sim.predationEvents++;
+        // Visual marker — colored by the predator's lineage
+        sim.flashes.push(new Flash(other.x, other.y, this.hue));
+      }
+    }
+
+    // ----- Toxin field interaction -----
+    const gx = clamp(Math.floor(this.x / TOXIN_CELL_SIZE), 0, sim.toxinCols - 1);
+    const gy = clamp(Math.floor(this.y / TOXIN_CELL_SIZE), 0, sim.toxinRows - 1);
+    const gi = gy * sim.toxinCols + gx;
+    const localToxin = sim.toxinGrid[gi];
+    const toxinDamage = localToxin * TOXIN_DAMAGE_RATE * (1 - this.toxinResistance);
+
+    // ----- Costs (Stage 2: square-cube law, turn cost, resistance upkeep) -----
+    const movementCost   = this.size * this.speed * this.speed * 0.04;
+    const sizeUpkeep     = this.size * this.size * 0.013;             // volume scaling (recalibrated)
+    const sensorUpkeep   = Math.pow(this.sensorRange / 50, 1.6) * 0.25;
+    const senescenceCost = Math.pow(this.age / 800, 2) * 0.05;
+    const turnCost       = turnAmt * this.size * 0.3;                 // low-Re: turning in honey
+    const resistanceCost = this.toxinResistance * 0.15;
+    const baseCost       = 0.06;
+    const metabolicCost  = movementCost + sizeUpkeep + sensorUpkeep + senescenceCost + turnCost + resistanceCost + baseCost;
+    this.energy -= metabolicCost + toxinDamage;
+
+    // ----- Excrete waste into local grid cell -----
+    sim.toxinGrid[gi] = localToxin + metabolicCost * TOXIN_EMIT_RATE;
+
+    this.age++;
+    if (this.energy <= 0) this.dead = true;
+  }
+
+  divide(sim) {
+    // Box-Muller — standard normal sample
+    const gaussian = () => {
+      const u1 = Math.random() || 1e-9;
+      const u2 = Math.random();
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    };
+    // Reflect at boundary so the distribution isn't biased away from extremes
+    const reflect = (v, lo, hi) => {
+      if (v < lo) v = lo + (lo - v);
+      if (v > hi) v = hi - (v - hi);
+      return clamp(v, lo, hi);
+    };
+    const mutateContinuous = (val, range) => {
+      if (Math.random() < sim.mutationRate) {
+        const span = range.max - range.min;
+        const sigma = span * 0.06; // std dev = 6% of range → most mutations small, tails possible
+        return reflect(val + gaussian() * sigma, range.min, range.max);
+      }
+      return val;
+    };
+
+    const makeChild = () => ({
+      size: mutateContinuous(this.size, TRAIT_RANGES.size),
+      speed: mutateContinuous(this.speed, TRAIT_RANGES.speed),
+      sensorRange: mutateContinuous(this.sensorRange, TRAIT_RANGES.sensorRange),
+      predationDrive: mutateContinuous(this.predationDrive, TRAIT_RANGES.predationDrive),
+      toxinResistance: mutateContinuous(this.toxinResistance, TRAIT_RANGES.toxinResistance),
+    });
+
+    const jitter = () => (Math.random() - 0.5) * 6;
+    const c1 = new Cell(this.x + jitter(), this.y + jitter(), makeChild(), this.generation + 1, this.lineageId);
+    const c2 = new Cell(this.x + jitter(), this.y + jitter(), makeChild(), this.generation + 1, this.lineageId);
+    c1.energy = CHILD_ENERGY;
+    c2.energy = CHILD_ENERGY;
+    return [c1, c2];
+  }
+
+  draw(ctx) {
+    // Trail
+    if (this.trail.length > 1) {
+      ctx.strokeStyle = `hsla(${this.hue}, 70%, 55%, 0.25)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0][0], this.trail[0][1]);
+      for (let i = 1; i < this.trail.length; i++) {
+        ctx.lineTo(this.trail[i][0], this.trail[i][1]);
+      }
+      ctx.stroke();
+    }
+
+    // Sensor range
+    if (Sim.showSensors) {
+      ctx.strokeStyle = `hsla(${this.hue}, 70%, 55%, 0.12)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.sensorRange, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Soft halo
+    const halo = ctx.createRadialGradient(this.x, this.y, this.size * 0.4, this.x, this.y, this.size * 2.2);
+    halo.addColorStop(0, `hsla(${this.hue}, 75%, 60%, 0.45)`);
+    halo.addColorStop(1, `hsla(${this.hue}, 75%, 50%, 0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = `hsl(${this.hue}, 80%, 65%)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner highlight (organelle hint)
+    ctx.fillStyle = `hsla(${this.hue}, 90%, 85%, 0.6)`;
+    ctx.beginPath();
+    ctx.arc(this.x - this.size*0.3, this.y - this.size*0.3, this.size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// FOOD
+// ============================================================
+class Food {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.energy = FOOD_ENERGY;
+    this.pulse = Math.random() * Math.PI * 2;
+  }
+  draw(ctx) {
+    this.pulse += 0.05;
+    // Shrink visually as the pellet is drained
+    const fullness = this.energy / FOOD_ENERGY;
+    const r = (1.5 + Math.sin(this.pulse) * 0.4) * (0.5 + fullness * 0.5);
+    const alpha = 0.4 + fullness * 0.45;
+    ctx.fillStyle = `rgba(95, 255, 138, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(95, 255, 138, ${0.08 + fullness * 0.12})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// FLASH (visual marker for predation events)
+// ============================================================
+class Flash {
+  constructor(x, y, hue) {
+    this.x = x; this.y = y;
+    this.hue = hue;
+    this.age = 0;
+    this.maxAge = 16;
+  }
+  step() { this.age++; return this.age < this.maxAge; }
+  draw(ctx) {
+    const t = this.age / this.maxAge;
+    const r = 4 + t * 28;
+    const a = (1 - t) * 0.9;
+    // Outer ring
+    ctx.strokeStyle = `hsla(${this.hue}, 90%, 60%, ${a})`;
+    ctx.lineWidth = 2.5 * (1 - t * 0.6);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    // Bright core that fades fast
+    if (t < 0.4) {
+      const coreA = (1 - t / 0.4) * 0.8;
+      ctx.fillStyle = `hsla(${this.hue}, 100%, 80%, ${coreA})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 4 + t * 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ============================================================
+// SIM
+// ============================================================
+const Sim = {
+  width: 0, height: 0,
+  cells: [], food: [],
+  generation: 1,
+  ticks: 0,
+  paused: false,
+  speed: 1,
+  foodSpawnRate: 1.0,
+  mutationRate: 0.25,
+  maxPopulation: 200,
+  showSensors: false,
+  showTrails: false,
+  showToxin: false,
+  extinct: false,
+  predationEvents: 0,
+  toxinGrid: null,
+  toxinCols: 0,
+  toxinRows: 0,
+  lineages: null,      // Map<id, {founderTick, maxGen, alive, hue}>
+  flashes: [],         // predation flashes
+  cursorX: null, cursorY: null,  // for paused inspector
+  history: { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [] },
+
+  initToxinGrid() {
+    this.toxinCols = Math.max(1, Math.ceil(this.width  / TOXIN_CELL_SIZE));
+    this.toxinRows = Math.max(1, Math.ceil(this.height / TOXIN_CELL_SIZE));
+    this.toxinGrid = new Float32Array(this.toxinCols * this.toxinRows);
+  },
+
+  init(w, h) {
+    this.width = w; this.height = h;
+    this.cells = [];
+    this.food = [];
+    this.flashes = [];
+    this.generation = 1;
+    this.ticks = 0;
+    this.extinct = false;
+    this.predationEvents = 0;
+    this.lineages = new Map();
+    this.initToxinGrid();
+    this.history = { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [] };
+    for (let i = 0; i < INITIAL_POPULATION; i++) {
+      const cell = new Cell(
+        Math.random() * w,
+        Math.random() * h,
+        randomTraits(),
+        1,    // generation
+        i,    // lineageId — each founder is its own lineage
+      );
+      this.cells.push(cell);
+      this.lineages.set(i, { founderTick: 0, maxGen: 1, alive: 1, hue: lineageHue(i) });
+    }
+    // Seed with food
+    for (let i = 0; i < 60; i++) {
+      this.food.push(new Food(Math.random() * w, Math.random() * h));
+    }
+  },
+
+  tick() {
+    if (this.extinct) return;
+
+    // Spawn food (Poisson-ish: foodSpawnRate is mean per tick)
+    let toSpawn = this.foodSpawnRate;
+    while (toSpawn >= 1) {
+      this.food.push(new Food(Math.random() * this.width, Math.random() * this.height));
+      toSpawn--;
+    }
+    if (Math.random() < toSpawn) {
+      this.food.push(new Food(Math.random() * this.width, Math.random() * this.height));
+    }
+    // Cap food so it can't explode
+    if (this.food.length > 800) this.food.length = 800;
+
+    // Update cells
+    for (const cell of this.cells) cell.step(this);
+
+    // Remove dead
+    this.cells = this.cells.filter(c => !c.dead);
+
+    // Divisions
+    const newCells = [];
+    for (const cell of this.cells) {
+      if (cell.energy >= DIVISION_THRESHOLD && (this.cells.length + newCells.length) < this.maxPopulation) {
+        const [c1, c2] = cell.divide(this);
+        newCells.push(c1, c2);
+        cell.dead = true;
+      }
+    }
+    this.cells = this.cells.filter(c => !c.dead).concat(newCells);
+
+    // Update generation — monotonic max over the whole run (never decreases)
+    for (const c of this.cells) {
+      if (c.generation > this.generation) this.generation = c.generation;
+    }
+
+    // Update per-lineage alive count + maxGen
+    for (const lin of this.lineages.values()) lin.alive = 0;
+    for (const c of this.cells) {
+      const lin = this.lineages.get(c.lineageId);
+      if (lin) {
+        lin.alive++;
+        if (c.generation > lin.maxGen) lin.maxGen = c.generation;
+      }
+    }
+
+    // Extinction
+    if (this.cells.length === 0) {
+      this.extinct = true;
+    }
+
+    // Tick predation flashes (step returns false when done)
+    this.flashes = this.flashes.filter(f => f.step());
+
+    // Decay toxin field
+    if (this.toxinGrid) {
+      for (let i = 0; i < this.toxinGrid.length; i++) {
+        this.toxinGrid[i] *= TOXIN_DECAY;
+      }
+    }
+
+    // Sample stats
+    if (this.ticks % HISTORY_SAMPLE_INTERVAL === 0 && this.cells.length > 0) {
+      const avg = key => this.cells.reduce((s, c) => s + c[key], 0) / this.cells.length;
+      this.history.size.push(avg('size'));
+      this.history.speed.push(avg('speed'));
+      this.history.sensor.push(avg('sensorRange'));
+      this.history.predation.push(avg('predationDrive'));
+      this.history.resistance.push(avg('toxinResistance'));
+      this.history.pop.push(this.cells.length);
+      for (const k of Object.keys(this.history)) {
+        if (this.history[k].length > HISTORY_LENGTH) this.history[k].shift();
+      }
+    }
+
+    this.ticks++;
+  },
+};
+
+// ============================================================
+// RENDER
+// ============================================================
+const canvas = document.getElementById('dish');
+const ctx = canvas.getContext('2d');
+
+function fitCanvas() {
+  const wrap = document.getElementById('dish-wrap');
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  Sim.width = w;
+  Sim.height = h;
+  // Resize toxin grid if dims changed
+  if (Sim.toxinGrid) Sim.initToxinGrid();
+}
+
+function render() {
+  // Background
+  ctx.fillStyle = '#06090d';
+  ctx.fillRect(0, 0, Sim.width, Sim.height);
+
+  // Subtle vignette
+  const vg = ctx.createRadialGradient(Sim.width/2, Sim.height/2, Math.min(Sim.width, Sim.height)*0.3, Sim.width/2, Sim.height/2, Math.max(Sim.width, Sim.height)*0.7);
+  vg.addColorStop(0, 'rgba(20, 30, 40, 0)');
+  vg.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, Sim.width, Sim.height);
+
+  // Toxin field (subtle red haze, drawn beneath everything else)
+  if (Sim.showToxin && Sim.toxinGrid) {
+    const cs = TOXIN_CELL_SIZE;
+    for (let gy = 0; gy < Sim.toxinRows; gy++) {
+      for (let gx = 0; gx < Sim.toxinCols; gx++) {
+        const v = Sim.toxinGrid[gy * Sim.toxinCols + gx];
+        if (v > 0.5) {
+          const a = Math.min(0.55, v * 0.012);
+          ctx.fillStyle = `rgba(255, 75, 60, ${a})`;
+          ctx.fillRect(gx * cs, gy * cs, cs, cs);
+        }
+      }
+    }
+  }
+
+  // Food
+  for (const f of Sim.food) f.draw(ctx);
+  // Cells
+  for (const c of Sim.cells) c.draw(ctx);
+  // Predation flashes (drawn last so they pop on top)
+  for (const fl of Sim.flashes) fl.draw(ctx);
+
+  // Paused-hover inspector: highlight nearest cell + draw tooltip ring
+  if (Sim.paused && Sim.cursorX != null) {
+    const hovered = findCellAt(Sim.cursorX, Sim.cursorY);
+    if (hovered) {
+      ctx.strokeStyle = '#5fff8a';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(hovered.x, hovered.y, hovered.size + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      showInspector(hovered);
+    } else {
+      hideInspector();
+    }
+  } else {
+    hideInspector();
+  }
+}
+
+function drawSparkline(canvasEl, data, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvasEl.clientWidth, h = canvasEl.clientHeight;
+  canvasEl.width = w * dpr;
+  canvasEl.height = h * dpr;
+  const c = canvasEl.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, w, h);
+  if (data.length < 2) return;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  c.strokeStyle = color;
+  c.lineWidth = 1.5;
+  c.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 2 - ((data[i] - min) / span) * (h - 4);
+    if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+  }
+  c.stroke();
+  // baseline tick at far right
+  c.fillStyle = color;
+  const lastX = w, lastY = h - 2 - ((data[data.length-1] - min) / span) * (h - 4);
+  c.beginPath();
+  c.arc(lastX - 2, lastY, 2, 0, Math.PI * 2);
+  c.fill();
+}
+
+// ============================================================
+// INSPECTOR (paused-hover cell details)
+// ============================================================
+function findCellAt(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const c of Sim.cells) {
+    const dx = c.x - x, dy = c.y - y;
+    const d = Math.hypot(dx, dy);
+    if (d < c.size + 8 && d < bestDist) { bestDist = d; best = c; }
+  }
+  return best;
+}
+function showInspector(cell) {
+  const el = document.getElementById('inspector');
+  if (!el) return;
+  const lin = Sim.lineages ? Sim.lineages.get(cell.lineageId) : null;
+  const linAge = lin ? Sim.ticks - lin.founderTick : 0;
+  const fmt = (n, d=2) => Number(n).toFixed(d);
+  el.innerHTML = `
+    <div class="lineage-head">
+      <span class="swatch" style="background: hsl(${cell.hue}, 80%, 60%)"></span>
+      <span>LINEAGE #${cell.lineageId}</span>
+    </div>
+    <div class="group">
+      <div class="gh">cell</div>
+      <div class="row"><span class="k">generation</span><span class="v">${cell.generation}</span></div>
+      <div class="row"><span class="k">age</span><span class="v">${cell.age} t</span></div>
+      <div class="row"><span class="k">energy</span><span class="v">${fmt(cell.energy, 0)} / ${DIVISION_THRESHOLD}</span></div>
+    </div>
+    <div class="group">
+      <div class="gh">traits</div>
+      <div class="row"><span class="k">size</span><span class="v">${fmt(cell.size)}</span></div>
+      <div class="row"><span class="k">speed</span><span class="v">${fmt(cell.speed)}</span></div>
+      <div class="row"><span class="k">sensor</span><span class="v">${fmt(cell.sensorRange, 1)}</span></div>
+      <div class="row"><span class="k">predation</span><span class="v">${fmt(cell.predationDrive)}</span></div>
+      <div class="row"><span class="k">resistance</span><span class="v">${fmt(cell.toxinResistance)}</span></div>
+    </div>
+    <div class="group">
+      <div class="gh">lineage</div>
+      <div class="row"><span class="k">founder age</span><span class="v">${linAge.toLocaleString()} t</span></div>
+      <div class="row"><span class="k">max gen</span><span class="v">${lin ? lin.maxGen : '—'}</span></div>
+      <div class="row"><span class="k">alive</span><span class="v">${lin ? lin.alive : 0}</span></div>
+    </div>
+  `;
+  // Position relative to dish-wrap, keeping inside bounds
+  const wrap = document.getElementById('dish-wrap');
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  // Measure after content is set
+  el.style.left = '0px'; el.style.top = '0px';
+  el.classList.add('show');
+  const rect = el.getBoundingClientRect();
+  let left = Sim.cursorX + 18;
+  let top  = Sim.cursorY + 14;
+  if (left + rect.width  > ww) left = Sim.cursorX - rect.width  - 14;
+  if (top  + rect.height > wh) top  = wh - rect.height - 8;
+  if (left < 4) left = 4;
+  if (top  < 4) top  = 4;
+  el.style.left = left + 'px';
+  el.style.top  = top  + 'px';
+}
+function hideInspector() {
+  const el = document.getElementById('inspector');
+  if (el) el.classList.remove('show');
+}
+
+// ============================================================
+// UI
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function updateStats() {
+  $('s-gen').textContent = Sim.generation;
+  $('s-pop').textContent = Sim.cells.length;
+  $('s-food').textContent = Sim.food.length;
+  $('s-tick').textContent = Sim.ticks;
+  $('s-preda').textContent = Sim.predationEvents;
+  let oldest = 0;
+  for (const c of Sim.cells) if (c.age > oldest) oldest = c.age;
+  $('s-age').textContent = oldest;
+
+  if (Sim.cells.length > 0) {
+    const avg = key => Sim.cells.reduce((s, c) => s + c[key], 0) / Sim.cells.length;
+    $('s-size').textContent    = avg('size').toFixed(2);
+    $('s-speed').textContent   = avg('speed').toFixed(2);
+    $('s-sensor').textContent  = avg('sensorRange').toFixed(1);
+    $('s-predavg').textContent = avg('predationDrive').toFixed(2);
+    $('s-resavg').textContent  = avg('toxinResistance').toFixed(2);
+    $('s-popavg').textContent  = Sim.cells.length;
+  }
+
+  drawSparkline($('spark-size'),       Sim.history.size,       '#5fff8a');
+  drawSparkline($('spark-speed'),      Sim.history.speed,      '#5fbcff');
+  drawSparkline($('spark-sensor'),     Sim.history.sensor,     '#ffb35f');
+  drawSparkline($('spark-predation'),  Sim.history.predation,  '#ff5f7a');
+  drawSparkline($('spark-resistance'), Sim.history.resistance, '#ff9a5f');
+  drawSparkline($('spark-pop'),        Sim.history.pop,        '#c98aff');
+
+  $('extinct-msg').classList.toggle('show', Sim.extinct);
+}
+
+// Wire controls
+$('btn-pause').addEventListener('click', () => {
+  Sim.paused = !Sim.paused;
+  $('btn-pause').textContent = Sim.paused ? 'PLAY' : 'PAUSE';
+  $('btn-pause').classList.toggle('active', Sim.paused);
+});
+
+$('btn-reset').addEventListener('click', () => {
+  Sim.init(Sim.width, Sim.height);
+  $('btn-pause').textContent = 'PAUSE';
+  $('btn-pause').classList.remove('active');
+  Sim.paused = false;
+});
+
+document.querySelectorAll('[data-speed]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-speed]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    Sim.speed = parseInt(btn.dataset.speed, 10);
+  });
+});
+
+$('r-food').addEventListener('input', e => {
+  Sim.foodSpawnRate = parseFloat(e.target.value);
+  $('v-food').textContent = Sim.foodSpawnRate.toFixed(2);
+});
+$('r-mut').addEventListener('input', e => {
+  Sim.mutationRate = parseFloat(e.target.value);
+  $('v-mut').textContent = Sim.mutationRate.toFixed(2);
+});
+$('r-max').addEventListener('input', e => {
+  Sim.maxPopulation = parseInt(e.target.value, 10);
+  $('v-max').textContent = Sim.maxPopulation;
+});
+$('t-sensors').addEventListener('change', e => { Sim.showSensors = e.target.checked; });
+$('t-trails').addEventListener('change', e => { Sim.showTrails = e.target.checked; });
+$('t-toxin').addEventListener('change', e => { Sim.showToxin = e.target.checked; });
+
+// Mouse tracking for paused-hover inspector
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  Sim.cursorX = e.clientX - rect.left;
+  Sim.cursorY = e.clientY - rect.top;
+});
+canvas.addEventListener('mouseleave', () => {
+  Sim.cursorX = null;
+  Sim.cursorY = null;
+});
+
+window.addEventListener('resize', () => {
+  fitCanvas();
+});
+
+// ============================================================
+// LOOP
+// ============================================================
+fitCanvas();
+Sim.init(Sim.width, Sim.height);
+
+let statTimer = 0;
+function loop() {
+  if (!Sim.paused && !Sim.extinct) {
+    for (let i = 0; i < Sim.speed; i++) Sim.tick();
+  }
+  render();
+  // Update sidebar stats at ~10Hz to avoid layout thrash
+  statTimer++;
+  if (statTimer >= 6) { updateStats(); statTimer = 0; }
+  requestAnimationFrame(loop);
+}
+updateStats();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

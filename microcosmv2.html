@@ -100,6 +100,27 @@
     margin-top: 8px;
     letter-spacing: 0.1em;
   }
+  #event-banner {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 14, 20, 0.92);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    border-radius: 3px;
+    display: none;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #event-banner.show { display: block; }
+  #event-banner.famine     { color: #ffa050; border-color: #ffa050; }
+  #event-banner.bloom      { color: #5fff8a; border-color: #5fff8a; }
+  #event-banner.antibiotic { color: #ff5f82; border-color: #ff5f82; }
+  #event-banner .ticks { color: var(--text-dim); margin-left: 10px; }
   #inspector {
     position: absolute;
     display: none;
@@ -141,6 +162,145 @@
   }
   #inspector .row .k { color: var(--text-dim); }
   #inspector .row .v { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* Analytics modal */
+  #analytics {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.96);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    padding: 16px;
+  }
+  #analytics.show { display: flex; }
+  .ana-header {
+    display: flex; align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .ana-header h2 {
+    margin: 0;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: normal;
+    letter-spacing: 0.3em;
+    flex: 1;
+  }
+  .ana-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    min-height: 0;
+  }
+  .ana-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+  .ana-panel h3 {
+    margin: 0;
+    padding: 8px 14px;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    font-weight: normal;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .ana-content {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    padding: 12px;
+    min-height: 0;
+    min-width: 0;
+  }
+  .ana-content canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Histograms grid (inside the first panel) */
+  .histo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    height: 100%;
+  }
+  .histo-cell {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .histo-cell .label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    display: flex; justify-content: space-between;
+  }
+  .histo-cell .label .mean { color: var(--accent); }
+  .histo-cell canvas {
+    flex: 1;
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  /* Roster table */
+  .roster {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  .roster th, .roster td {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .roster th {
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-size: 9px;
+    font-weight: normal;
+    cursor: pointer;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+  }
+  .roster th:hover { color: var(--accent); }
+  .roster td { color: var(--text); font-variant-numeric: tabular-nums; }
+  .roster tr.extinct td { color: var(--text-dim); }
+  .roster .swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    border: 1px solid rgba(255,255,255,0.15);
+    margin-right: 6px;
+  }
+  .roster .shape-tag {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
   aside {
     background: var(--panel);
     border-left: 1px solid var(--border);
@@ -238,12 +398,16 @@
       <button class="btn" data-speed="5">5×</button>
       <button class="btn" data-speed="25">25×</button>
     </div>
+    <div class="btn-group">
+      <button class="btn" id="btn-analytics">ANALYTICS</button>
+    </div>
     <div class="spacer"></div>
     <div style="color: var(--text-dim); font-size: 10px; letter-spacing: 0.15em;">v1 · SIM MODE</div>
   </header>
   <main>
     <div id="dish-wrap">
       <canvas id="dish"></canvas>
+      <div id="event-banner"></div>
       <div id="inspector"></div>
       <div id="overlay">
         <div id="extinct-msg">
@@ -286,6 +450,14 @@
           <canvas class="sparkline" id="spark-resistance"></canvas>
         </div>
         <div class="trait-block">
+          <div class="head"><span>diet preference</span><span class="v" id="s-dietavg">—</span></div>
+          <canvas class="sparkline" id="spark-diet"></canvas>
+        </div>
+        <div class="trait-block">
+          <div class="head"><span>temp optimum</span><span class="v" id="s-tempavg">—</span></div>
+          <canvas class="sparkline" id="spark-temp"></canvas>
+        </div>
+        <div class="trait-block">
           <div class="head"><span>population</span><span class="v" id="s-popavg">—</span></div>
           <canvas class="sparkline" id="spark-pop"></canvas>
         </div>
@@ -314,6 +486,9 @@
         <label class="toggle">
           <input type="checkbox" id="t-toxin"> show toxin field
         </label>
+        <label class="toggle">
+          <input type="checkbox" id="t-temp"> show temperature
+        </label>
       </div>
 
       <div class="legend">
@@ -321,6 +496,32 @@
       </div>
     </aside>
   </main>
+
+  <!-- Analytics modal (hidden by default) -->
+  <div id="analytics">
+    <div class="ana-header">
+      <h2>ANALYTICS</h2>
+      <button class="btn" id="ana-close">CLOSE</button>
+    </div>
+    <div class="ana-grid">
+      <div class="ana-panel">
+        <h3>Trait distributions</h3>
+        <div class="ana-content"><div class="histo-grid" id="ana-histograms"></div></div>
+      </div>
+      <div class="ana-panel">
+        <h3>Lineage population over time</h3>
+        <div class="ana-content"><canvas id="ana-stacked"></canvas></div>
+      </div>
+      <div class="ana-panel">
+        <h3>Strategy scatter — size × speed (dot color = lineage, size = predation drive)</h3>
+        <div class="ana-content"><canvas id="ana-scatter"></canvas></div>
+      </div>
+      <div class="ana-panel">
+        <h3>Lineage roster</h3>
+        <div class="ana-content" id="ana-roster"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -333,6 +534,8 @@ const TRAIT_RANGES = {
   sensorRange:     { min: 15,  max: 140 },
   predationDrive:  { min: 0.0, max: 1.0 },   // 0 = pure grazer, 1 = pure hunter
   toxinResistance: { min: 0.0, max: 1.0 },   // costs energy to maintain
+  dietPreference:  { min: 0.0, max: 1.0 },   // 0 prefers green food, 1 prefers amber
+  tempOptimum:     { min: 0.0, max: 1.0 },   // 0 thrives cool (edge), 1 thrives warm (center)
 };
 
 const START_ENERGY = 100;
@@ -351,6 +554,22 @@ const TOXIN_DAMAGE_RATE = 0.004;// damage per unit local toxin per tick
 const PREDATION_SIZE_RATIO = 1.2; // must be at least 1.2x bigger to engulf
 const FOOD_UPTAKE_PER_SIZE = 2.0; // diffusion uptake: size * this per tick
 
+// Dish geometry
+const DISH_MARGIN = 18;          // px between canvas edge and dish rim
+const BOUNDARY_PUSH = 0.5;       // restoring force coefficient at the edge
+
+// Consumption animation
+const CONSUMPTION_TICKS = 14;    // frames a predation animation lasts
+
+// Niche / environment (Stage 5)
+const DIET_MISMATCH_PENALTY = 0.45;    // uptake multiplier = 1 - this * |pref - foodType|
+const TEMP_MISMATCH_COST    = 0.18;    // extra per-tick metabolism at max mismatch
+const FOOD_TYPE_BIAS        = 0.6;     // strength of inner=green / outer=amber spawn skew
+const EVENT_TRIGGER_PROB    = 1/2000;  // per-tick chance of new event if idle
+const EVENT_MIN_DURATION    = 300;
+const EVENT_MAX_DURATION    = 700;
+const ANTIBIOTIC_DAMAGE     = 0.12;    // per-tick on (1 - toxinResistance) during event
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -368,6 +587,8 @@ function randomTraits() {
     sensorRange: rand(TRAIT_RANGES.sensorRange.min, TRAIT_RANGES.sensorRange.max),
     predationDrive: rand(0, 1),
     toxinResistance: rand(0, 1),
+    dietPreference: rand(0, 1),
+    tempOptimum: rand(0, 1),
   };
 }
 
@@ -383,8 +604,12 @@ class Cell {
     this.sensorRange = traits.sensorRange;
     this.predationDrive = traits.predationDrive;
     this.toxinResistance = traits.toxinResistance;
+    this.dietPreference = traits.dietPreference;
+    this.tempOptimum = traits.tempOptimum;
     this.lineageId = lineageId;
     this.hue = lineageHue(lineageId);
+    this.shapeType = lineageId % 3;  // 0 = cocci, 1 = bacilli, 2 = spirilla
+    this.wobblePhase = Math.random() * Math.PI * 2;  // desync siblings
     this.energy = START_ENERGY;
     this.age = 0;
     this.generation = generation;
@@ -393,16 +618,6 @@ class Cell {
   }
 
   step(sim) {
-    // Wrap-aware relative position helper
-    const wrapDelta = (ox, oy) => {
-      let dx = ox - this.x, dy = oy - this.y;
-      if (dx >  sim.width  / 2) dx -= sim.width;
-      if (dx < -sim.width  / 2) dx += sim.width;
-      if (dy >  sim.height / 2) dy -= sim.height;
-      if (dy < -sim.height / 2) dy += sim.height;
-      return [dx, dy];
-    };
-
     // ----- Sense (food and prey, weighted by predationDrive) -----
     let target = null;
     let bestScore = 0;
@@ -411,22 +626,22 @@ class Cell {
 
     if (grazingBias > 0.01) {
       for (const food of sim.food) {
-        const [dx, dy] = wrapDelta(food.x, food.y);
+        const dx = food.x - this.x, dy = food.y - this.y;
         const d = Math.hypot(dx, dy);
         if (d > this.sensorRange) continue;
         const score = grazingBias * (1 - d / this.sensorRange);
-        if (score > bestScore) { bestScore = score; target = { x: this.x + dx, y: this.y + dy }; }
+        if (score > bestScore) { bestScore = score; target = { x: food.x, y: food.y }; }
       }
     }
     if (huntingBias > 0.01) {
       for (const other of sim.cells) {
         if (other === this || other.dead) continue;
         if (this.size <= other.size * PREDATION_SIZE_RATIO) continue;
-        const [dx, dy] = wrapDelta(other.x, other.y);
+        const dx = other.x - this.x, dy = other.y - this.y;
         const d = Math.hypot(dx, dy);
         if (d > this.sensorRange) continue;
         const score = huntingBias * (1 - d / this.sensorRange);
-        if (score > bestScore) { bestScore = score; target = { x: this.x + dx, y: this.y + dy }; }
+        if (score > bestScore) { bestScore = score; target = { x: other.x, y: other.y }; }
       }
     }
 
@@ -448,10 +663,22 @@ class Cell {
     // ----- Move (low-Re: no inertia, v = speed * heading) -----
     this.x += Math.cos(this.heading) * this.speed;
     this.y += Math.sin(this.heading) * this.speed;
-    if (this.x < 0) this.x += sim.width;
-    if (this.x >= sim.width) this.x -= sim.width;
-    if (this.y < 0) this.y += sim.height;
-    if (this.y >= sim.height) this.y -= sim.height;
+
+    // ----- Soft boundary: push back toward dish center if past edge -----
+    const dxC = this.x - sim.dish.cx, dyC = this.y - sim.dish.cy;
+    const distC = Math.hypot(dxC, dyC) || 1e-9;
+    const innerEdge = sim.dish.radius - this.size - 1;
+    if (distC > innerEdge) {
+      const push = (distC - innerEdge) * BOUNDARY_PUSH;
+      this.x -= (dxC / distC) * push;
+      this.y -= (dyC / distC) * push;
+      // Gentle inward steering so cells don't grind along the wall
+      const inwardHeading = Math.atan2(-dyC, -dxC);
+      let dh = inwardHeading - this.heading;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      this.heading += clamp(dh, -0.05, 0.05);
+    }
 
     // Trail
     if (sim.showTrails) {
@@ -461,14 +688,18 @@ class Cell {
       this.trail.length = 0;
     }
 
-    // ----- Eat food (diffusion-limited: uptake ∝ surface, so size) -----
+    // ----- Eat food (diffusion-limited + diet match) -----
     for (let i = sim.food.length - 1; i >= 0; i--) {
       const f = sim.food[i];
-      const [dx, dy] = wrapDelta(f.x, f.y);
-      if (Math.hypot(dx, dy) < this.size + 2.5) {
-        const uptake = Math.min(this.size * FOOD_UPTAKE_PER_SIZE, f.energy);
+      const dx = f.x - this.x, dy = f.y - this.y;
+      if (Math.hypot(dx, dy) < this.size + 4) {
+        const dietMatch = 1 - DIET_MISMATCH_PENALTY * Math.abs(this.dietPreference - f.type);
+        const raw = Math.min(this.size * FOOD_UPTAKE_PER_SIZE, f.energy);
+        const uptake = raw * dietMatch;
         this.energy += uptake;
-        f.energy -= uptake;
+        f.energy -= raw; // pellet drains at the full rate; mismatched cells waste the rest
+        // Siphon tendril (intensity reflects what was actually absorbed)
+        sim.siphons.push({ cx: this.x, cy: this.y, fx: f.x, fy: f.y, hue: this.hue, intensity: uptake });
         if (f.energy <= 0) sim.food.splice(i, 1);
       }
     }
@@ -477,13 +708,15 @@ class Cell {
     for (const other of sim.cells) {
       if (other === this || other.dead) continue;
       if (this.size <= other.size * PREDATION_SIZE_RATIO) continue;
-      const [dx, dy] = wrapDelta(other.x, other.y);
+      const dx = other.x - this.x, dy = other.y - this.y;
       if (Math.hypot(dx, dy) < this.size + other.size * 0.7) {
-        // Engulf: gain prey's current energy + biomass
+        // Energy gain happens immediately so game logic stays clean
         this.energy += other.energy + other.size * other.size * 6;
         other.dead = true;
         sim.predationEvents++;
-        // Visual marker — colored by the predator's lineage
+        // Phagocytosis animation — prey is dragged into predator over multiple frames
+        sim.consumptions.push(new Consumption(this, other.x, other.y, other.size, other.hue, other.lineageId));
+        // Brief flash too (kept for snap)
         sim.flashes.push(new Flash(other.x, other.y, this.hue));
       }
     }
@@ -495,16 +728,23 @@ class Cell {
     const localToxin = sim.toxinGrid[gi];
     const toxinDamage = localToxin * TOXIN_DAMAGE_RATE * (1 - this.toxinResistance);
 
-    // ----- Costs (Stage 2: square-cube law, turn cost, resistance upkeep) -----
+    // ----- Costs (Stage 2: square-cube; Stage 5: temperature mismatch + event damage) -----
     const movementCost   = this.size * this.speed * this.speed * 0.04;
-    const sizeUpkeep     = this.size * this.size * 0.013;             // volume scaling (recalibrated)
+    const sizeUpkeep     = this.size * this.size * 0.013;             // volume scaling
     const sensorUpkeep   = Math.pow(this.sensorRange / 50, 1.6) * 0.25;
     const senescenceCost = Math.pow(this.age / 800, 2) * 0.05;
     const turnCost       = turnAmt * this.size * 0.3;                 // low-Re: turning in honey
     const resistanceCost = this.toxinResistance * 0.15;
     const baseCost       = 0.06;
-    const metabolicCost  = movementCost + sizeUpkeep + sensorUpkeep + senescenceCost + turnCost + resistanceCost + baseCost;
-    this.energy -= metabolicCost + toxinDamage;
+    // Temperature mismatch — cell pays for being away from its optimum
+    const localTemp      = sim.tempAt(this.x, this.y);
+    const tempCost       = Math.abs(localTemp - this.tempOptimum) * TEMP_MISMATCH_COST;
+    // Antibiotic event damage (only when an antibiotic event is active)
+    const eventDamage    = (sim.event && sim.event.type === 'antibiotic')
+      ? ANTIBIOTIC_DAMAGE * (1 - this.toxinResistance) : 0;
+    const metabolicCost  = movementCost + sizeUpkeep + sensorUpkeep + senescenceCost
+                         + turnCost + resistanceCost + baseCost + tempCost;
+    this.energy -= metabolicCost + toxinDamage + eventDamage;
 
     // ----- Excrete waste into local grid cell -----
     sim.toxinGrid[gi] = localToxin + metabolicCost * TOXIN_EMIT_RATE;
@@ -541,6 +781,8 @@ class Cell {
       sensorRange: mutateContinuous(this.sensorRange, TRAIT_RANGES.sensorRange),
       predationDrive: mutateContinuous(this.predationDrive, TRAIT_RANGES.predationDrive),
       toxinResistance: mutateContinuous(this.toxinResistance, TRAIT_RANGES.toxinResistance),
+      dietPreference: mutateContinuous(this.dietPreference, TRAIT_RANGES.dietPreference),
+      tempOptimum: mutateContinuous(this.tempOptimum, TRAIT_RANGES.tempOptimum),
     });
 
     const jitter = () => (Math.random() - 0.5) * 6;
@@ -549,6 +791,43 @@ class Cell {
     c1.energy = CHILD_ENERGY;
     c2.energy = CHILD_ENERGY;
     return [c1, c2];
+  }
+
+  // Build a procedural perimeter (array of [x,y] in local space) for this cell's shape.
+  // Called every frame. ~16 points × ~150 cells = ~2400 trig ops/frame — well within budget.
+  buildPerimeter(t) {
+    const N = 18;
+    const pts = new Array(N);
+    if (this.shapeType === 0) {
+      // ----- COCCI: round with subtle radial wobble -----
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const wobble = Math.sin(a * 3 + t) * 0.08 + Math.sin(a * 5 + t * 1.3) * 0.05;
+        const r = this.size * (1 + wobble);
+        pts[i] = [Math.cos(a) * r, Math.sin(a) * r];
+      }
+    } else if (this.shapeType === 1) {
+      // ----- BACILLI: rod / capsule stretched along heading -----
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const wobble = Math.sin(a * 4 + t) * 0.06;
+        const r = this.size * (1 + wobble);
+        pts[i] = [Math.cos(a) * r * 1.65, Math.sin(a) * r * 0.85];
+      }
+    } else {
+      // ----- SPIRILLA: curved capsule with S-bend -----
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const wobble = Math.sin(a * 3 + t) * 0.06;
+        const r = this.size * (1 + wobble);
+        let px = Math.cos(a) * r * 1.55;
+        let py = Math.sin(a) * r * 0.75;
+        // Lateral S-bend: more bend the further along the long axis
+        py += Math.sin(px * 0.45 + t * 0.4) * this.size * 0.35;
+        pts[i] = [px, py];
+      }
+    }
+    return pts;
   }
 
   draw(ctx) {
@@ -573,52 +852,148 @@ class Cell {
       ctx.stroke();
     }
 
-    // Soft halo
-    const halo = ctx.createRadialGradient(this.x, this.y, this.size * 0.4, this.x, this.y, this.size * 2.2);
-    halo.addColorStop(0, `hsla(${this.hue}, 75%, 60%, 0.45)`);
+    // Soft halo (world-space)
+    const halo = ctx.createRadialGradient(this.x, this.y, this.size * 0.4, this.x, this.y, this.size * 2.4);
+    halo.addColorStop(0, `hsla(${this.hue}, 75%, 60%, 0.35)`);
     halo.addColorStop(1, `hsla(${this.hue}, 75%, 50%, 0)`);
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size * 2.2, 0, Math.PI * 2);
+    ctx.arc(this.x, this.y, this.size * 2.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body
-    ctx.fillStyle = `hsl(${this.hue}, 80%, 65%)`;
+    // Body — local coords, oriented to heading
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.heading);
+
+    const t = this.age * 0.06 + this.wobblePhase;
+    const pts = this.buildPerimeter(t);
+    const N = pts.length;
+
+    // Smooth closed path via quadratic curves through midpoints
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    const mid0X = (pts[N - 1][0] + pts[0][0]) / 2;
+    const mid0Y = (pts[N - 1][1] + pts[0][1]) / 2;
+    ctx.moveTo(mid0X, mid0Y);
+    for (let i = 0; i < N; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % N];
+      const mx = (p1[0] + p2[0]) / 2;
+      const my = (p1[1] + p2[1]) / 2;
+      ctx.quadraticCurveTo(p1[0], p1[1], mx, my);
+    }
+    ctx.closePath();
+
+    // Body fill
+    ctx.fillStyle = `hsl(${this.hue}, 80%, 62%)`;
     ctx.fill();
 
-    // Inner highlight (organelle hint)
-    ctx.fillStyle = `hsla(${this.hue}, 90%, 85%, 0.6)`;
+    // Membrane outline
+    ctx.strokeStyle = `hsla(${this.hue}, 95%, 78%, 0.55)`;
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+
+    // Nucleus / organelle hint (positioned slightly off-center toward the back)
+    ctx.fillStyle = `hsla(${this.hue}, 90%, 88%, 0.55)`;
     ctx.beginPath();
-    ctx.arc(this.x - this.size*0.3, this.y - this.size*0.3, this.size * 0.3, 0, Math.PI * 2);
+    ctx.arc(-this.size * 0.25, -this.size * 0.15, this.size * 0.28, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.restore();
   }
 }
 
 // ============================================================
 // FOOD
 // ============================================================
+// Food types: 0 = green (warm-zone associated), 1 = amber (cool-zone associated)
+const FOOD_COLORS = [
+  { core: '95, 255, 138', halo: '95, 255, 138' },  // green
+  { core: '255, 190, 70', halo: '255, 165, 60' },  // amber
+];
+
 class Food {
-  constructor(x, y) {
+  constructor(x, y, type = 0) {
     this.x = x; this.y = y;
+    this.type = type;
     this.energy = FOOD_ENERGY;
     this.pulse = Math.random() * Math.PI * 2;
   }
   draw(ctx) {
     this.pulse += 0.05;
-    // Shrink visually as the pellet is drained
     const fullness = this.energy / FOOD_ENERGY;
     const r = (1.5 + Math.sin(this.pulse) * 0.4) * (0.5 + fullness * 0.5);
     const alpha = 0.4 + fullness * 0.45;
-    ctx.fillStyle = `rgba(95, 255, 138, ${alpha})`;
+    const c = FOOD_COLORS[this.type];
+    ctx.fillStyle = `rgba(${c.core}, ${alpha})`;
     ctx.beginPath();
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = `rgba(95, 255, 138, ${0.08 + fullness * 0.12})`;
+    ctx.fillStyle = `rgba(${c.halo}, ${0.08 + fullness * 0.12})`;
     ctx.beginPath();
     ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
     ctx.fill();
+  }
+}
+
+// ============================================================
+// CONSUMPTION (phagocytosis animation: prey dragged into predator)
+// ============================================================
+class Consumption {
+  constructor(predator, startX, startY, preySize, preyHue, preyLineageId) {
+    this.predator = predator;          // live predator reference; victim chases this
+    this.x = startX; this.y = startY;  // current animated position
+    this.preySize = preySize;
+    this.preyHue = preyHue;
+    this.preyLineageId = preyLineageId;
+    this.age = 0;
+    this.maxAge = CONSUMPTION_TICKS;
+  }
+  step() {
+    this.age++;
+    // Lerp toward predator (predator may have moved since the kill)
+    if (!this.predator || this.predator.dead) {
+      // predator died mid-digestion — let the prey ghost just dissolve in place
+    } else {
+      const t = this.age / this.maxAge;
+      // ease-in: pulled faster as digestion progresses
+      const k = t * t;
+      this.x = this.x + (this.predator.x - this.x) * k;
+      this.y = this.y + (this.predator.y - this.y) * k;
+    }
+    return this.age < this.maxAge;
+  }
+  draw(ctx) {
+    const t = this.age / this.maxAge;
+    // Shrink and fade
+    const scale = (1 - t) * (1 - t);
+    const r = this.preySize * scale;
+    const a = (1 - t) * 0.85;
+    if (r < 0.3) return;
+    // Soft halo
+    const halo = ctx.createRadialGradient(this.x, this.y, r * 0.3, this.x, this.y, r * 2.5);
+    halo.addColorStop(0, `hsla(${this.preyHue}, 80%, 60%, ${a * 0.5})`);
+    halo.addColorStop(1, `hsla(${this.preyHue}, 80%, 50%, 0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Shrinking body
+    ctx.fillStyle = `hsla(${this.preyHue}, 80%, 65%, ${a})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    // Thin trailing wisp from start position
+    if (t < 0.6) {
+      ctx.strokeStyle = `hsla(${this.preyHue}, 80%, 70%, ${(1 - t) * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // Brief streak back toward emergence direction
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x - (this.predator ? (this.predator.x - this.x) * 0.5 : 0),
+                 this.y - (this.predator ? (this.predator.y - this.y) * 0.5 : 0));
+      ctx.stroke();
+    }
   }
 }
 
@@ -677,8 +1052,14 @@ const Sim = {
   toxinRows: 0,
   lineages: null,      // Map<id, {founderTick, maxGen, alive, hue}>
   flashes: [],         // predation flashes
+  consumptions: [],    // in-progress phagocytosis animations
+  siphons: [],         // ephemeral food-drain tendrils (rebuilt each tick)
+  dish: { cx: 0, cy: 0, radius: 0 },
+  event: null,         // active env event: {type, ticksLeft, foodRateMul, label}
+  eventHistory: [],    // recent events for analytics
+  showTempField: false,
   cursorX: null, cursorY: null,  // for paused inspector
-  history: { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [] },
+  history: { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [], diet: [], temp: [] },
 
   initToxinGrid() {
     this.toxinCols = Math.max(1, Math.ceil(this.width  / TOXIN_CELL_SIZE));
@@ -686,47 +1067,97 @@ const Sim = {
     this.toxinGrid = new Float32Array(this.toxinCols * this.toxinRows);
   },
 
+  initDish() {
+    this.dish.cx = this.width  / 2;
+    this.dish.cy = this.height / 2;
+    this.dish.radius = Math.max(40, Math.min(this.width, this.height) / 2 - DISH_MARGIN);
+  },
+
+  // Uniform random point inside the dish (polar, area-weighted)
+  randomDishPoint(inset = 8) {
+    const r = (this.dish.radius - inset) * Math.sqrt(Math.random());
+    const a = Math.random() * Math.PI * 2;
+    return [this.dish.cx + Math.cos(a) * r, this.dish.cy + Math.sin(a) * r];
+  },
+
+  // Normalized temperature at a point: 1.0 center, 0.0 at dish edge
+  tempAt(x, y) {
+    const d = Math.hypot(x - this.dish.cx, y - this.dish.cy);
+    return clamp(1 - d / this.dish.radius, 0, 1);
+  },
+
+  // Food type chosen based on position: green favored near center, amber near edge
+  foodTypeAt(x, y) {
+    const distNorm = Math.hypot(x - this.dish.cx, y - this.dish.cy) / this.dish.radius;
+    const pAmber = clamp(0.5 + (distNorm - 0.5) * FOOD_TYPE_BIAS, 0, 1);
+    return Math.random() < pAmber ? 1 : 0;
+  },
+
+  spawnFood() {
+    const [x, y] = this.randomDishPoint();
+    this.food.push(new Food(x, y, this.foodTypeAt(x, y)));
+  },
+
   init(w, h) {
     this.width = w; this.height = h;
     this.cells = [];
     this.food = [];
     this.flashes = [];
+    this.consumptions = [];
+    this.siphons = [];
     this.generation = 1;
     this.ticks = 0;
     this.extinct = false;
     this.predationEvents = 0;
+    this.event = null;
+    this.eventHistory = [];
     this.lineages = new Map();
+    this.lineagePopHistory = new Map();
+    this.initDish();
     this.initToxinGrid();
-    this.history = { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [] };
+    this.history = { size: [], speed: [], sensor: [], pop: [], predation: [], resistance: [], diet: [], temp: [] };
     for (let i = 0; i < INITIAL_POPULATION; i++) {
-      const cell = new Cell(
-        Math.random() * w,
-        Math.random() * h,
-        randomTraits(),
-        1,    // generation
-        i,    // lineageId — each founder is its own lineage
-      );
+      const [x, y] = this.randomDishPoint(16);
+      const cell = new Cell(x, y, randomTraits(), 1, i);
       this.cells.push(cell);
-      this.lineages.set(i, { founderTick: 0, maxGen: 1, alive: 1, hue: lineageHue(i) });
+      this.lineages.set(i, { founderTick: 0, maxGen: 1, alive: 1, peakPop: 1, hue: lineageHue(i), shapeType: i % 3 });
+      this.lineagePopHistory.set(i, []);  // filled by the sampling tick
     }
     // Seed with food
-    for (let i = 0; i < 60; i++) {
-      this.food.push(new Food(Math.random() * w, Math.random() * h));
-    }
+    for (let i = 0; i < 60; i++) this.spawnFood();
   },
 
   tick() {
     if (this.extinct) return;
 
-    // Spawn food (Poisson-ish: foodSpawnRate is mean per tick)
-    let toSpawn = this.foodSpawnRate;
-    while (toSpawn >= 1) {
-      this.food.push(new Food(Math.random() * this.width, Math.random() * this.height));
-      toSpawn--;
+    // ----- Environmental events -----
+    if (this.event) {
+      this.event.ticksLeft--;
+      if (this.event.ticksLeft <= 0) {
+        this.eventHistory.push({ type: this.event.type, endTick: this.ticks });
+        if (this.eventHistory.length > 32) this.eventHistory.shift();
+        this.event = null;
+      }
+    } else if (Math.random() < EVENT_TRIGGER_PROB) {
+      const r = Math.random();
+      const duration = Math.floor(rand(EVENT_MIN_DURATION, EVENT_MAX_DURATION));
+      if (r < 0.4) {
+        this.event = { type: 'famine', ticksLeft: duration, foodRateMul: 0.15, label: 'FAMINE' };
+      } else if (r < 0.75) {
+        this.event = { type: 'bloom', ticksLeft: duration, foodRateMul: 3.0, label: 'BLOOM' };
+      } else {
+        this.event = { type: 'antibiotic', ticksLeft: duration, foodRateMul: 1.0, label: 'ANTIBIOTIC' };
+      }
     }
-    if (Math.random() < toSpawn) {
-      this.food.push(new Food(Math.random() * this.width, Math.random() * this.height));
-    }
+
+    // Reset per-tick siphon list (cells will repopulate during step)
+    this.siphons.length = 0;
+
+    // Spawn food inside the dish (rate modified by active event)
+    const rateMul = this.event ? (this.event.foodRateMul ?? 1) : 1;
+    let toSpawn = this.foodSpawnRate * rateMul;
+    while (toSpawn >= 1) { this.spawnFood(); toSpawn--; }
+    if (Math.random() < toSpawn) this.spawnFood();
     // Cap food so it can't explode
     if (this.food.length > 800) this.food.length = 800;
 
@@ -752,7 +1183,7 @@ const Sim = {
       if (c.generation > this.generation) this.generation = c.generation;
     }
 
-    // Update per-lineage alive count + maxGen
+    // Update per-lineage alive count + maxGen + peakPop
     for (const lin of this.lineages.values()) lin.alive = 0;
     for (const c of this.cells) {
       const lin = this.lineages.get(c.lineageId);
@@ -760,6 +1191,9 @@ const Sim = {
         lin.alive++;
         if (c.generation > lin.maxGen) lin.maxGen = c.generation;
       }
+    }
+    for (const lin of this.lineages.values()) {
+      if (lin.alive > lin.peakPop) lin.peakPop = lin.alive;
     }
 
     // Extinction
@@ -769,6 +1203,8 @@ const Sim = {
 
     // Tick predation flashes (step returns false when done)
     this.flashes = this.flashes.filter(f => f.step());
+    // Tick consumption animations
+    this.consumptions = this.consumptions.filter(c => c.step());
 
     // Decay toxin field
     if (this.toxinGrid) {
@@ -785,9 +1221,18 @@ const Sim = {
       this.history.sensor.push(avg('sensorRange'));
       this.history.predation.push(avg('predationDrive'));
       this.history.resistance.push(avg('toxinResistance'));
+      this.history.diet.push(avg('dietPreference'));
+      this.history.temp.push(avg('tempOptimum'));
       this.history.pop.push(this.cells.length);
       for (const k of Object.keys(this.history)) {
         if (this.history[k].length > HISTORY_LENGTH) this.history[k].shift();
+      }
+      // Per-lineage population snapshot (parallel arrays across all lineages)
+      for (const [id, lin] of this.lineages) {
+        let arr = this.lineagePopHistory.get(id);
+        if (!arr) { arr = []; this.lineagePopHistory.set(id, arr); }
+        arr.push(lin.alive);
+        if (arr.length > HISTORY_LENGTH) arr.shift();
       }
     }
 
@@ -812,23 +1257,45 @@ function fitCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   Sim.width = w;
   Sim.height = h;
+  Sim.initDish();
   // Resize toxin grid if dims changed
   if (Sim.toxinGrid) Sim.initToxinGrid();
 }
 
 function render() {
-  // Background
-  ctx.fillStyle = '#06090d';
+  const { cx, cy, radius } = Sim.dish;
+
+  // Outer (off-dish) background
+  ctx.fillStyle = '#04060a';
   ctx.fillRect(0, 0, Sim.width, Sim.height);
 
-  // Subtle vignette
-  const vg = ctx.createRadialGradient(Sim.width/2, Sim.height/2, Math.min(Sim.width, Sim.height)*0.3, Sim.width/2, Sim.height/2, Math.max(Sim.width, Sim.height)*0.7);
-  vg.addColorStop(0, 'rgba(20, 30, 40, 0)');
-  vg.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, Sim.width, Sim.height);
+  // Dish interior — slightly lighter, with a soft inner gradient suggesting depth
+  const dishBg = ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius);
+  dishBg.addColorStop(0, '#0c1118');
+  dishBg.addColorStop(0.75, '#080c12');
+  dishBg.addColorStop(1, '#06090d');
+  ctx.fillStyle = dishBg;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Toxin field (subtle red haze, drawn beneath everything else)
+  // Clip everything that follows to the dish interior
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Temperature gradient overlay (warm center / cool edge)
+  if (Sim.showTempField) {
+    const tg = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    tg.addColorStop(0,    'rgba(255, 110, 80, 0.16)');
+    tg.addColorStop(0.55, 'rgba(160, 120, 200, 0.05)');
+    tg.addColorStop(1,    'rgba(80, 160, 255, 0.16)');
+    ctx.fillStyle = tg;
+    ctx.fillRect(0, 0, Sim.width, Sim.height);
+  }
+
+  // Toxin field (subtle red haze beneath everything)
   if (Sim.showToxin && Sim.toxinGrid) {
     const cs = TOXIN_CELL_SIZE;
     for (let gy = 0; gy < Sim.toxinRows; gy++) {
@@ -845,14 +1312,32 @@ function render() {
 
   // Food
   for (const f of Sim.food) f.draw(ctx);
+
+  // Food siphons — faint tendrils where cells are absorbing food
+  for (const s of Sim.siphons) {
+    const a = Math.min(0.5, s.intensity * 0.04);
+    const grad = ctx.createLinearGradient(s.fx, s.fy, s.cx, s.cy);
+    grad.addColorStop(0, `hsla(95, 80%, 70%, ${a})`);
+    grad.addColorStop(1, `hsla(${s.hue}, 80%, 70%, ${a * 0.3})`);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(s.fx, s.fy);
+    ctx.lineTo(s.cx, s.cy);
+    ctx.stroke();
+  }
+
   // Cells
   for (const c of Sim.cells) c.draw(ctx);
-  // Predation flashes (drawn last so they pop on top)
+  // Consumption animations (above cells so the prey ghost reads clearly)
+  for (const cn of Sim.consumptions) cn.draw(ctx);
+  // Predation flashes (top)
   for (const fl of Sim.flashes) fl.draw(ctx);
 
-  // Paused-hover inspector: highlight nearest cell + draw tooltip ring
+  // Inspector highlight ring (still inside dish clip)
+  let hovered = null;
   if (Sim.paused && Sim.cursorX != null) {
-    const hovered = findCellAt(Sim.cursorX, Sim.cursorY);
+    hovered = findCellAt(Sim.cursorX, Sim.cursorY);
     if (hovered) {
       ctx.strokeStyle = '#5fff8a';
       ctx.lineWidth = 1.5;
@@ -861,13 +1346,33 @@ function render() {
       ctx.arc(hovered.x, hovered.y, hovered.size + 6, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
-      showInspector(hovered);
-    } else {
-      hideInspector();
     }
-  } else {
-    hideInspector();
   }
+
+  ctx.restore(); // end clip
+
+  // Glass rim — drawn over the clip boundary
+  let rimColor = 'rgba(120, 180, 200, 0.18)';
+  if (Sim.event) {
+    if (Sim.event.type === 'famine')      rimColor = 'rgba(255, 160, 80, 0.45)';
+    else if (Sim.event.type === 'bloom')  rimColor = 'rgba(95, 255, 138, 0.45)';
+    else if (Sim.event.type === 'antibiotic') rimColor = 'rgba(255, 95, 130, 0.5)';
+  }
+  ctx.strokeStyle = rimColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  // Inner highlight (top-left)
+  ctx.strokeStyle = 'rgba(200, 230, 255, 0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 1, Math.PI * 1.15, Math.PI * 1.55);
+  ctx.stroke();
+
+  // Inspector DOM update (outside clip)
+  if (hovered) showInspector(hovered);
+  else hideInspector();
 }
 
 function drawSparkline(canvasEl, data, color) {
@@ -897,6 +1402,232 @@ function drawSparkline(canvasEl, data, color) {
   c.beginPath();
   c.arc(lastX - 2, lastY, 2, 0, Math.PI * 2);
   c.fill();
+}
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+const TRAIT_HISTO_SPEC = [
+  { key: 'size',            label: 'size',       color: '#5fff8a', range: TRAIT_RANGES.size },
+  { key: 'speed',           label: 'speed',      color: '#5fbcff', range: TRAIT_RANGES.speed },
+  { key: 'sensorRange',     label: 'sensor',     color: '#ffb35f', range: TRAIT_RANGES.sensorRange },
+  { key: 'predationDrive',  label: 'predation',  color: '#ff5f7a', range: TRAIT_RANGES.predationDrive },
+  { key: 'toxinResistance', label: 'resistance', color: '#ff9a5f', range: TRAIT_RANGES.toxinResistance },
+  { key: 'dietPreference',  label: 'diet pref',  color: '#9fff5f', range: TRAIT_RANGES.dietPreference },
+  { key: 'tempOptimum',     label: 'temp opt',   color: '#ff7a90', range: TRAIT_RANGES.tempOptimum },
+];
+
+function fitAnaCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, canvas.clientWidth);
+  const h = Math.max(1, canvas.clientHeight);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const c = canvas.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { c, w, h };
+}
+
+function renderHistograms() {
+  const container = document.getElementById('ana-histograms');
+  container.innerHTML = '';
+  for (const spec of TRAIT_HISTO_SPEC) {
+    const cell = document.createElement('div');
+    cell.className = 'histo-cell';
+    const values = Sim.cells.map(c => c[spec.key]);
+    const mean = values.length ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+    cell.innerHTML = `<div class="label"><span>${spec.label}</span><span class="mean">μ=${mean.toFixed(2)}</span></div><canvas></canvas>`;
+    container.appendChild(cell);
+
+    const canvas = cell.querySelector('canvas');
+    // Force layout so canvas has clientWidth/Height
+    void canvas.offsetWidth;
+    const { c, w, h } = fitAnaCanvas(canvas);
+    c.clearRect(0, 0, w, h);
+    if (values.length === 0) continue;
+
+    const nBins = 20;
+    const bins = new Array(nBins).fill(0);
+    const min = spec.range.min, max = spec.range.max, span = max - min;
+    for (const v of values) {
+      const idx = Math.min(nBins - 1, Math.max(0, Math.floor((v - min) / span * nBins)));
+      bins[idx]++;
+    }
+    const maxCount = Math.max(1, ...bins);
+
+    const barW = w / nBins;
+    c.globalAlpha = 0.85;
+    for (let i = 0; i < nBins; i++) {
+      const barH = (bins[i] / maxCount) * (h - 4);
+      c.fillStyle = spec.color;
+      c.fillRect(i * barW + 0.5, h - barH - 1, Math.max(0.5, barW - 1), barH);
+    }
+    c.globalAlpha = 1;
+
+    // Mean indicator
+    const meanX = (mean - min) / span * w;
+    c.strokeStyle = 'rgba(255,255,255,0.45)';
+    c.lineWidth = 1;
+    c.setLineDash([3, 2]);
+    c.beginPath();
+    c.moveTo(meanX, 0);
+    c.lineTo(meanX, h);
+    c.stroke();
+    c.setLineDash([]);
+  }
+}
+
+function renderStackedArea() {
+  const canvas = document.getElementById('ana-stacked');
+  const { c, w, h } = fitAnaCanvas(canvas);
+  c.clearRect(0, 0, w, h);
+
+  const allLineages = [...Sim.lineagePopHistory.entries()].sort((a, b) => a[0] - b[0]);
+  if (allLineages.length === 0) return;
+  const samples = allLineages[0][1].length;
+  if (samples < 2) {
+    c.fillStyle = 'rgba(200,210,220,0.4)';
+    c.font = '10px monospace';
+    c.fillText('not enough samples yet — let the sim run for a bit', 12, 24);
+    return;
+  }
+
+  const totals = new Array(samples).fill(0);
+  for (const [, arr] of allLineages) {
+    for (let i = 0; i < samples; i++) totals[i] += arr[i] || 0;
+  }
+  const maxTotal = Math.max(1, ...totals);
+
+  for (let i = 0; i < samples - 1; i++) {
+    let yBottom1 = h;
+    let yBottom2 = h;
+    for (const [id, arr] of allLineages) {
+      const v1 = arr[i] || 0;
+      const v2 = arr[i + 1] || 0;
+      if (v1 === 0 && v2 === 0) continue;
+      const lin = Sim.lineages.get(id);
+      const hue = lin ? lin.hue : 0;
+      const x1 = (i / (samples - 1)) * w;
+      const x2 = ((i + 1) / (samples - 1)) * w;
+      const h1 = (v1 / maxTotal) * h;
+      const h2 = (v2 / maxTotal) * h;
+      const yTop1 = yBottom1 - h1;
+      const yTop2 = yBottom2 - h2;
+      c.fillStyle = `hsla(${hue}, 75%, 55%, 0.85)`;
+      c.beginPath();
+      c.moveTo(x1, yBottom1);
+      c.lineTo(x1, yTop1);
+      c.lineTo(x2, yTop2);
+      c.lineTo(x2, yBottom2);
+      c.closePath();
+      c.fill();
+      yBottom1 = yTop1;
+      yBottom2 = yTop2;
+    }
+  }
+
+  c.fillStyle = 'rgba(200,210,220,0.45)';
+  c.font = '9px monospace';
+  c.fillText('0', 4, h - 4);
+  c.fillText(String(maxTotal), 4, 12);
+  c.fillText('time →', w - 48, h - 4);
+}
+
+function renderStrategyScatter() {
+  const canvas = document.getElementById('ana-scatter');
+  const { c, w, h } = fitAnaCanvas(canvas);
+  c.clearRect(0, 0, w, h);
+
+  const xRange = TRAIT_RANGES.size;
+  const yRange = TRAIT_RANGES.speed;
+  const m = { top: 12, right: 12, bottom: 28, left: 36 };
+  const px = v => m.left + ((v - xRange.min) / (xRange.max - xRange.min)) * (w - m.left - m.right);
+  const py = v => h - m.bottom - ((v - yRange.min) / (yRange.max - yRange.min)) * (h - m.top - m.bottom);
+
+  c.strokeStyle = 'rgba(150,160,170,0.3)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(m.left, m.top); c.lineTo(m.left, h - m.bottom); c.lineTo(w - m.right, h - m.bottom);
+  c.stroke();
+
+  c.fillStyle = 'rgba(180,190,200,0.55)';
+  c.font = '9px monospace';
+  c.fillText('size →', w - 50, h - 8);
+  c.save();
+  c.translate(14, m.top + 28);
+  c.rotate(-Math.PI / 2);
+  c.fillText('← speed', 0, 0);
+  c.restore();
+  c.fillStyle = 'rgba(150,160,170,0.5)';
+  c.fillText(xRange.min.toFixed(1), m.left, h - 14);
+  c.fillText(xRange.max.toFixed(1), w - m.right - 22, h - 14);
+  c.fillText(yRange.max.toFixed(1), 2, m.top + 8);
+  c.fillText(yRange.min.toFixed(1), 2, h - m.bottom - 2);
+
+  for (const cell of Sim.cells) {
+    const x = px(cell.size);
+    const y = py(cell.speed);
+    const r = 1.5 + cell.predationDrive * 4;
+    c.fillStyle = `hsla(${cell.hue}, 80%, 65%, 0.78)`;
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+const SHAPE_NAMES = ['cocci', 'bacilli', 'spirilla'];
+let rosterSort = { key: 'alive', dir: -1 };
+function renderRoster() {
+  const container = document.getElementById('ana-roster');
+  const rows = [];
+  for (const [id, lin] of Sim.lineages) {
+    rows.push({
+      id, hue: lin.hue, shapeType: lin.shapeType,
+      maxGen: lin.maxGen, alive: lin.alive, peakPop: lin.peakPop,
+      status: lin.alive > 0 ? 'alive' : 'extinct',
+    });
+  }
+  const k = rosterSort.key, dir = rosterSort.dir;
+  rows.sort((a, b) => {
+    const av = a[k], bv = b[k];
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (bv - av);
+  });
+
+  const head = `<thead><tr>
+    <th data-sort="id">ID</th>
+    <th data-sort="shapeType">SHAPE</th>
+    <th data-sort="alive">ALIVE</th>
+    <th data-sort="peakPop">PEAK</th>
+    <th data-sort="maxGen">MAX GEN</th>
+    <th data-sort="status">STATUS</th>
+  </tr></thead>`;
+  const body = '<tbody>' + rows.map(r => `
+    <tr class="${r.status === 'extinct' ? 'extinct' : ''}">
+      <td><span class="swatch" style="background:hsl(${r.hue},80%,60%)"></span>#${r.id}</td>
+      <td><span class="shape-tag">${SHAPE_NAMES[r.shapeType]}</span></td>
+      <td>${r.alive}</td>
+      <td>${r.peakPop}</td>
+      <td>${r.maxGen}</td>
+      <td>${r.status}</td>
+    </tr>`).join('') + '</tbody>';
+  container.innerHTML = `<table class="roster">${head}${body}</table>`;
+
+  container.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (rosterSort.key === key) rosterSort.dir *= -1;
+      else { rosterSort.key = key; rosterSort.dir = -1; }
+      renderRoster();
+    });
+  });
+}
+
+function renderAnalytics() {
+  renderHistograms();
+  renderStackedArea();
+  renderStrategyScatter();
+  renderRoster();
 }
 
 // ============================================================
@@ -935,6 +1666,8 @@ function showInspector(cell) {
       <div class="row"><span class="k">sensor</span><span class="v">${fmt(cell.sensorRange, 1)}</span></div>
       <div class="row"><span class="k">predation</span><span class="v">${fmt(cell.predationDrive)}</span></div>
       <div class="row"><span class="k">resistance</span><span class="v">${fmt(cell.toxinResistance)}</span></div>
+      <div class="row"><span class="k">diet pref</span><span class="v">${fmt(cell.dietPreference)}</span></div>
+      <div class="row"><span class="k">temp opt</span><span class="v">${fmt(cell.tempOptimum)}</span></div>
     </div>
     <div class="group">
       <div class="gh">lineage</div>
@@ -986,6 +1719,8 @@ function updateStats() {
     $('s-sensor').textContent  = avg('sensorRange').toFixed(1);
     $('s-predavg').textContent = avg('predationDrive').toFixed(2);
     $('s-resavg').textContent  = avg('toxinResistance').toFixed(2);
+    $('s-dietavg').textContent = avg('dietPreference').toFixed(2);
+    $('s-tempavg').textContent = avg('tempOptimum').toFixed(2);
     $('s-popavg').textContent  = Sim.cells.length;
   }
 
@@ -994,7 +1729,18 @@ function updateStats() {
   drawSparkline($('spark-sensor'),     Sim.history.sensor,     '#ffb35f');
   drawSparkline($('spark-predation'),  Sim.history.predation,  '#ff5f7a');
   drawSparkline($('spark-resistance'), Sim.history.resistance, '#ff9a5f');
+  drawSparkline($('spark-diet'),       Sim.history.diet,       '#5fff8a');
+  drawSparkline($('spark-temp'),       Sim.history.temp,       '#ff8090');
   drawSparkline($('spark-pop'),        Sim.history.pop,        '#c98aff');
+
+  // Event banner
+  const banner = $('event-banner');
+  if (Sim.event) {
+    banner.className = 'show ' + Sim.event.type;
+    banner.innerHTML = `${Sim.event.label}<span class="ticks">${Sim.event.ticksLeft}t</span>`;
+  } else {
+    banner.className = '';
+  }
 
   $('extinct-msg').classList.toggle('show', Sim.extinct);
 }
@@ -1036,6 +1782,29 @@ $('r-max').addEventListener('input', e => {
 $('t-sensors').addEventListener('change', e => { Sim.showSensors = e.target.checked; });
 $('t-trails').addEventListener('change', e => { Sim.showTrails = e.target.checked; });
 $('t-toxin').addEventListener('change', e => { Sim.showToxin = e.target.checked; });
+$('t-temp').addEventListener('change',  e => { Sim.showTempField = e.target.checked; });
+
+// Analytics modal
+$('btn-analytics').addEventListener('click', () => {
+  // Pause sim if running
+  if (!Sim.paused) {
+    Sim.paused = true;
+    $('btn-pause').textContent = 'PLAY';
+    $('btn-pause').classList.add('active');
+  }
+  $('analytics').classList.add('show');
+  // Double-RAF ensures the modal is fully laid out before we measure canvases
+  requestAnimationFrame(() => requestAnimationFrame(renderAnalytics));
+});
+$('ana-close').addEventListener('click', () => {
+  $('analytics').classList.remove('show');
+});
+// Re-render on window resize while analytics is open
+window.addEventListener('resize', () => {
+  if ($('analytics').classList.contains('show')) {
+    requestAnimationFrame(renderAnalytics);
+  }
+});
 
 // Mouse tracking for paused-hover inspector
 canvas.addEventListener('mousemove', e => {

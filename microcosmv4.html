@@ -2,32 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Microcosm — v3</title>
+<title>Microcosm — v4</title>
 <style>
   :root {
     --bg: #0a0e14;
     --panel: #11161f;
     --panel-2: #161c27;
-    --border: #1f2733;
-    --text: #cfd6e0;
-    --text-dim: #6a7686;
-    --accent: #5fff8a;
-    --accent-dim: #2d8a4a;
-    --warn: #ff7755;
+    --border: #232a37;
+    --text: #d4dae3;
+    --text-dim: #6e7989;
+    --accent: #88c5a0;          /* softened sage — less neon, more clinical */
+    --accent-strong: #b6dac0;
+    --accent-dim: #2f4a39;
+    --warn: #e08561;
+    --serif: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    --sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Inter', sans-serif;
+    --mono:  'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-family: var(--sans);
     font-size: 12px;
     height: 100%;
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   #app {
     display: grid;
-    grid-template-rows: 44px 1fr;
+    grid-template-rows: 56px 1fr;
     height: 100vh;
   }
   header {
@@ -35,31 +41,58 @@
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    padding: 0 16px;
-    gap: 16px;
+    padding: 0 22px;
+    gap: 18px;
   }
-  header h1 {
-    margin: 0;
-    font-size: 14px;
-    letter-spacing: 0.2em;
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.05;
+    margin-right: 8px;
+  }
+  .masthead .title {
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+  .masthead .subtitle {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .masthead .subtitle .ver {
     color: var(--accent);
-    font-weight: normal;
+    margin-left: 4px;
   }
   header .spacer { flex: 1; }
   .btn {
-    background: var(--panel-2);
+    background: transparent;
     border: 1px solid var(--border);
-    color: var(--text);
-    padding: 5px 12px;
-    font-family: inherit;
-    font-size: 11px;
+    color: var(--text-dim);
+    padding: 6px 13px;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
     cursor: pointer;
-    border-radius: 3px;
-    transition: all 0.1s;
+    border-radius: 2px;
+    transition: all 0.12s ease;
   }
-  .btn:hover { background: var(--border); color: var(--accent); }
-  .btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+  .btn:hover { background: var(--panel-2); color: var(--text); border-color: #2f3845; }
+  .btn.active {
+    background: var(--accent-dim);
+    color: var(--accent-strong);
+    border-color: var(--accent);
+  }
   .btn-group { display: flex; gap: 4px; }
+  .btn-group .btn { border-radius: 0; }
+  .btn-group .btn:first-child { border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+  .btn-group .btn:last-child  { border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
   main {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -171,23 +204,96 @@
     z-index: 100;
     display: none;
     flex-direction: column;
-    padding: 16px;
+    padding: 20px;
   }
   #analytics.show { display: flex; }
   .ana-header {
-    display: flex; align-items: center;
-    padding-bottom: 12px;
+    display: flex; align-items: baseline;
+    padding-bottom: 14px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
   .ana-header h2 {
     margin: 0;
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: normal;
-    letter-spacing: 0.3em;
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     flex: 1;
   }
+  .ana-header .ana-sub {
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-right: 16px;
+  }
+
+  /* About modal — mirrors analytics shell but holds prose */
+  #about {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.97);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  #about.show { display: flex; }
+  #about .about-shell {
+    width: min(720px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 40px);
+  }
+  #about .about-head {
+    display: flex; align-items: baseline;
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  #about .about-head h2 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    flex: 1;
+  }
+  #about .about-head .ab-sub {
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-right: 16px;
+  }
+  #about .about-body {
+    padding: 22px 28px 26px;
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text);
+    overflow-y: auto;
+  }
+  #about .about-body p { margin: 0 0 14px 0; }
+  #about .about-body p:last-child { margin-bottom: 0; }
+  #about .about-body .small {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    line-height: 1.55;
+  }
+  #about .about-body em { color: var(--accent); font-style: italic; }
   .ana-grid {
     flex: 1;
     display: grid;
@@ -207,13 +313,15 @@
   }
   .ana-panel h3 {
     margin: 0;
-    padding: 8px 14px;
-    font-size: 10px;
-    letter-spacing: 0.25em;
-    color: var(--text-dim);
-    font-weight: normal;
+    padding: 10px 16px;
+    font-family: var(--serif);
+    font-size: 13px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    font-weight: 500;
     border-bottom: 1px solid var(--border);
-    text-transform: uppercase;
+    text-transform: none;
   }
   .ana-content {
     flex: 1;
@@ -305,21 +413,24 @@
     background: var(--panel);
     border-left: 1px solid var(--border);
     overflow-y: auto;
-    padding: 16px;
+    padding: 18px 20px;
   }
   .section {
-    margin-bottom: 20px;
-    padding-bottom: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
     border-bottom: 1px solid var(--border);
   }
   .section:last-child { border-bottom: none; }
   .section h2 {
-    margin: 0 0 10px 0;
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    font-weight: normal;
+    margin: 0 0 12px 0;
+    font-family: var(--serif);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    text-transform: none;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
   }
   .stat-row {
     display: flex;
@@ -328,20 +439,20 @@
     padding: 3px 0;
     font-size: 11px;
   }
-  .stat-row .label { color: var(--text-dim); }
-  .stat-row .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat-row .label { color: var(--text-dim); font-family: var(--sans); }
+  .stat-row .value { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .control {
-    margin: 8px 0;
+    margin: 10px 0;
   }
   .control label {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 10.5px;
     color: var(--text-dim);
-    margin-bottom: 4px;
-    letter-spacing: 0.05em;
+    margin-bottom: 5px;
+    font-family: var(--sans);
   }
-  .control label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .control label .val { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .control input[type=range] {
     width: 100%;
     accent-color: var(--accent);
@@ -356,7 +467,9 @@
     padding: 4px 0;
     font-size: 11px;
     color: var(--text-dim);
+    font-family: var(--sans);
   }
+  .toggle:hover { color: var(--text); }
   .toggle input { accent-color: var(--accent); cursor: pointer; }
   .sparkline {
     display: block;
@@ -367,31 +480,35 @@
     margin-top: 4px;
     border-radius: 2px;
   }
-  .trait-block { margin-bottom: 10px; }
+  .trait-block { margin-bottom: 12px; }
   .trait-block .head {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 10.5px;
     color: var(--text-dim);
-    letter-spacing: 0.05em;
+    font-family: var(--sans);
   }
-  .trait-block .head .v { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .trait-block .head .v { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .legend {
     color: var(--text-dim);
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    margin-top: 12px;
-    line-height: 1.5;
+    font-size: 10.5px;
+    line-height: 1.55;
+    margin-top: 14px;
+    font-family: var(--serif);
+    font-style: italic;
   }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>MICROCOSM</h1>
+    <div class="masthead">
+      <span class="title">Microcosm</span>
+      <span class="subtitle">An evolutionary microbiology simulator <span class="ver">· v4</span></span>
+    </div>
     <div class="btn-group">
-      <button class="btn" id="btn-pause">PAUSE</button>
-      <button class="btn" id="btn-reset">RESET</button>
+      <button class="btn" id="btn-pause">Pause</button>
+      <button class="btn" id="btn-reset">Reset</button>
     </div>
     <div class="btn-group">
       <button class="btn" data-speed="0.25">0.25×</button>
@@ -400,10 +517,10 @@
       <button class="btn" data-speed="25">25×</button>
     </div>
     <div class="btn-group">
-      <button class="btn" id="btn-analytics">ANALYTICS</button>
+      <button class="btn" id="btn-analytics">Analytics</button>
+      <button class="btn" id="btn-about">About</button>
     </div>
     <div class="spacer"></div>
-    <div style="color: var(--text-dim); font-size: 10px; letter-spacing: 0.15em;">v3 · SIM MODE</div>
   </header>
   <main>
     <div id="dish-wrap">
@@ -427,6 +544,10 @@
         <div class="stat-row"><span class="label">predation events</span><span class="value" id="s-preda">0</span></div>
         <div class="stat-row"><span class="label">HGT events</span><span class="value" id="s-hgt">0</span></div>
         <div class="stat-row"><span class="label">dormant (spores)</span><span class="value" id="s-dormant">0</span></div>
+        <div class="stat-row"><span class="label">persisters</span><span class="value" id="s-persist">0</span></div>
+        <div class="stat-row"><span class="label">phages</span><span class="value" id="s-phages">0</span></div>
+        <div class="stat-row"><span class="label">infected</span><span class="value" id="s-infected">0</span></div>
+        <div class="stat-row"><span class="label">lysis events</span><span class="value" id="s-lysis">0</span></div>
         <div class="stat-row"><span class="label">ticks</span><span class="value" id="s-tick">0</span></div>
       </div>
 
@@ -503,8 +624,9 @@
   <!-- Analytics modal (hidden by default) -->
   <div id="analytics">
     <div class="ana-header">
-      <h2>ANALYTICS</h2>
-      <button class="btn" id="ana-close">CLOSE</button>
+      <h2>Analytics</h2>
+      <span class="ana-sub">Lineage · Traits · Strategy</span>
+      <button class="btn" id="ana-close">Close</button>
     </div>
     <div class="ana-grid">
       <div class="ana-panel">
@@ -522,6 +644,37 @@
       <div class="ana-panel">
         <h3>Lineage roster</h3>
         <div class="ana-content" id="ana-roster"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About modal -->
+  <div id="about">
+    <div class="about-shell">
+      <div class="about-head">
+        <h2>About Microcosm</h2>
+        <span class="ab-sub">v4 · Sim mode</span>
+        <button class="btn" id="about-close">Close</button>
+      </div>
+      <div class="about-body">
+        <p>
+          <em>Microcosm</em> is a real-time agent-based simulation of microbial evolution. Thirty founder lineages of cells live in a circular petri dish, each carrying heritable traits — size, motility, sensor range, hunting drive, toxin resistance, dietary preference, and temperature optimum. Over generations, Gaussian mutation and natural selection drift these traits toward whichever strategies happen to survive the dish's pressures.
+        </p>
+        <p>
+          The cellular machinery models real biology. Movement obeys Stokes drag (cost scales as size × velocity²); maintenance obeys the square-cube law; nutrient uptake is diffusion-limited at the surface; predator cells engulf smaller cells via phagocytosis; metabolic waste accumulates in a local toxin field that decays over time. Resistant cells digest poorly. Sibling-lineage cells are recognized as kin and rarely hunted.
+        </p>
+        <p>
+          When energy collapses, cells <em>sporulate</em> — encyst into dormant spores with near-zero metabolism and predator immunity, awaiting nutrient signals to germinate. A separate stochastic process flips a small fraction of cells into the <em>persister</em> phenotype: temporarily quiescent, antibiotic-shielded, then reverting. Genes spread laterally through <em>horizontal gene transfer</em>, so trait values flow across lineage boundaries even though body ancestry stays clonal.
+        </p>
+        <p>
+          <em>Bacteriophages</em> drift through the dish hunting specific lineages. Cells acquire <em>CRISPR</em> immunity against witnessed lyses; that immunity then propagates via HGT, producing Red-Queen oscillations as each lineage rises, attracts its phage, crashes, immunizes, and recovers. Environmental events — famine, bloom, antibiotic — periodically disturb the equilibrium.
+        </p>
+        <p>
+          There is no goal. The dish is a window onto evolution doing its work: a non-trivial number of mutually-interacting selection pressures producing visible drift in real time. Hover a cell while paused to inspect its lineage, traits, infection state, and CRISPR spacer array. Open Analytics for population history, trait distributions, and lineage rosters.
+        </p>
+        <p class="small">
+          Source: single self-contained HTML file, Canvas 2D, no external dependencies. See <code>BIOLOGY.md</code> for a full per-mechanic reference pairing each sim parameter with its real-world counterpart, and <code>CONTEXT.md</code> for the implementation state.
+        </p>
       </div>
     </div>
   </div>
@@ -570,6 +723,34 @@ const DORMANCY_MIN_TICKS   = 60;    // min time as a spore before germination is
 const DORMANCY_WAKE_DIST   = 20;    // food within (size + this) wakes a spore
 const SPORE_MORTALITY      = 0.0005; // per-tick chance of permanent spore death (degradation)
 const SPORE_DAMAGE_FRACTION = 0.3;  // fraction of normal toxin/antibiotic damage spores still take
+
+// Stage 10: phage / viral predation with lineage-specific tropism + CRISPR immunity
+// Calibration note: a pure diffusion model in a 300px-radius dish makes
+// host encounter rates ~40x slower than phage decay. We compensate by
+// (a) raising phage motility and contact size, (b) adding weak host-seeking
+// (represents aggregate phage-pop dynamics, not single-virion physics).
+const PHAGE_INITIAL_COUNT       = 30;     // one per founder lineage at sim start
+const PHAGE_SPEED               = 1.2;    // baseline drift speed
+const PHAGE_JITTER              = 0.6;    // per-tick Brownian heading perturbation
+const PHAGE_DECAY               = 0.0015; // per-tick death prob without finding a host (~460 tick median life)
+const PHAGE_INFECTION_PROB      = 0.45;   // chance of infection on contact with matching unimmune cell
+const PHAGE_INCUBATION          = 120;    // ticks from infection to lysis
+const PHAGE_BURST_SIZE          = 5;      // child phages released per lysis
+const PHAGE_RADIUS              = 4;      // visual + contact radius
+const PHAGE_SENSE_RANGE         = 70;     // host-seeking aggregate sensing range
+const PHAGE_SPONTANEOUS_RATE    = 1/3000; // per-tick chance new phage of random lineage spawns
+const SPACER_ACQUIRE_RADIUS     = 40;     // surviving cells within this of a lysis can learn
+const SPACER_ACQUIRE_PROB       = 0.25;   // per-cell chance of picking up the spacer on witnessed lysis
+const SPACER_HGT_TRANSFER_PROB  = 0.5;    // chance HGT contact also transfers one random spacer
+const SPACER_MAX                = 8;      // cap on spacers per cell (real CRISPR arrays are bounded)
+
+// Stage 9: persister cells (stochastic phenotype switching — non-genetic, temporary)
+const PERSISTER_ENTRY_RATE      = 0.001; // per-tick chance any active cell flips into persister state
+const PERSISTER_DURATION        = 200;   // ticks before auto-revert to vegetative state
+const PERSISTER_METABOLISM_MULT = 0.4;   // metabolic cost while in persister state
+const PERSISTER_ABX_SHIELD      = 0.1;   // antibiotic damage scales by this — the textbook persister effect
+const PERSISTER_TOXIN_SHIELD    = 0.5;   // toxin damage scales by this
+const PERSISTER_SPEED_MULT      = 0.3;   // movement during persistence
 
 // Dish geometry
 const DISH_MARGIN = 18;          // px between canvas edge and dish rim
@@ -629,6 +810,12 @@ class Cell {
     this.wobblePhase = Math.random() * Math.PI * 2;  // desync siblings
     this.dormant = false;        // Stage 8: sporulation state
     this.dormantTicks = 0;
+    this.persister = false;      // Stage 9: stochastic persister phenotype
+    this.persisterTicks = 0;     // counts down from PERSISTER_DURATION
+    this.crisprSpacers = new Set();  // Stage 10: CRISPR immunity — lineageIds of phages we're immune to
+    this.infected = false;       // Stage 10: phage infection state
+    this.infectionTicks = 0;     // counts down to lysis
+    this.infectionPhageLineage = -1;
     this.energy = START_ENERGY;
     this.age = 0;
     this.generation = generation;
@@ -673,9 +860,35 @@ class Cell {
       }
     }
 
-    // ----- Sense (food and prey, weighted by predationDrive) -----
-    let target = null;
-    let bestScore = 0;
+    // ----- Stage 10: Phage infection lifecycle -----
+    // Infected cell continues normal behavior during incubation, then lyses.
+    // Release of phages + spacer broadcast happens in sim.spawnLysis().
+    if (this.infected) {
+      this.infectionTicks--;
+      if (this.infectionTicks <= 0) {
+        sim.spawnLysis(this);
+        this.dead = true;
+        return;
+      }
+    }
+
+    // ----- Stage 9: Persister phenotype (stochastic non-genetic switch) -----
+    // Real persister cells flip into a quiescent metabolic state at random,
+    // hide through antibiotic events, then revert. Distinct from dormancy:
+    // not energy-triggered, fixed-duration, NOT spore-coated (still predatable).
+    if (this.persister) {
+      this.persisterTicks--;
+      if (this.persisterTicks <= 0) this.persister = false;
+    } else if (Math.random() < PERSISTER_ENTRY_RATE) {
+      this.persister = true;
+      this.persisterTicks = PERSISTER_DURATION;
+    }
+
+    // ----- Stage 9: Chemotaxis (gradient-following) -----
+    // Sum weighted attraction vectors from all in-range sources. Resultant
+    // direction approximates the local chemoattractant gradient. Real bacteria
+    // do biased random walks up such gradients via run-and-tumble.
+    let gradX = 0, gradY = 0;
     const grazingBias = 1 - this.predationDrive;
     const huntingBias = this.predationDrive;
 
@@ -683,43 +896,52 @@ class Cell {
       for (const food of sim.food) {
         const dx = food.x - this.x, dy = food.y - this.y;
         const d = Math.hypot(dx, dy);
-        if (d > this.sensorRange) continue;
-        const score = grazingBias * (1 - d / this.sensorRange);
-        if (score > bestScore) { bestScore = score; target = { x: food.x, y: food.y }; }
+        if (d > this.sensorRange || d < 0.1) continue;
+        // diffusion-like falloff, weighted by grazing bias
+        const w = grazingBias / (d + 1);
+        gradX += (dx / d) * w;
+        gradY += (dy / d) * w;
       }
     }
     if (huntingBias > 0.01) {
       for (const other of sim.cells) {
-        if (other === this || other.dead || other.dormant) continue; // spores are unappealing prey
+        if (other === this || other.dead || other.dormant) continue;
         if (this.size <= other.size * PREDATION_SIZE_RATIO) continue;
         const dx = other.x - this.x, dy = other.y - this.y;
         const d = Math.hypot(dx, dy);
-        if (d > this.sensorRange) continue;
-        // Kin recognition: same lineageId = same founder line = reduced appetite
+        if (d > this.sensorRange || d < 0.1) continue;
         const kinFactor = (other.lineageId === this.lineageId) ? KIN_APPETITE : 1;
-        const score = huntingBias * (1 - d / this.sensorRange) * kinFactor;
-        if (score > bestScore) { bestScore = score; target = { x: other.x, y: other.y }; }
+        const w = huntingBias * kinFactor / (d + 1);
+        gradX += (dx / d) * w;
+        gradY += (dy / d) * w;
       }
     }
 
-    // ----- Steer (turn amount tracked for low-Re cost) -----
+    // ----- Steer (chemotaxis confidence + run-and-tumble fallback) -----
     const prevHeading = this.heading;
-    if (target) {
-      const dx = target.x - this.x, dy = target.y - this.y;
-      const targetHeading = Math.atan2(dy, dx);
+    const gradMag = Math.hypot(gradX, gradY);
+    if (gradMag > 0.001) {
+      const targetHeading = Math.atan2(gradY, gradX);
       let dh = targetHeading - this.heading;
       while (dh > Math.PI) dh -= Math.PI * 2;
       while (dh < -Math.PI) dh += Math.PI * 2;
-      this.heading += clamp(dh, -0.15, 0.15);
+      // Confidence scales with gradient strength — strong signal, decisive turn.
+      // Weak signal, mostly random walk. This is the "biased" part of biased random walk.
+      const confidence = Math.min(1, gradMag * 4);
+      this.heading += clamp(dh, -0.15, 0.15) * confidence;
+      // Residual tumble — real bacteria still randomly reorient even with gradient
+      this.heading += (Math.random() - 0.5) * 0.12 * (1 - confidence);
     } else {
+      // No signal → pure run-and-tumble random walk
       this.heading += (Math.random() - 0.5) * 0.25;
     }
     let turnAmt = Math.abs(this.heading - prevHeading);
     if (turnAmt > Math.PI) turnAmt = Math.PI * 2 - turnAmt;
 
     // ----- Move (low-Re: no inertia, v = speed * heading) -----
-    this.x += Math.cos(this.heading) * this.speed;
-    this.y += Math.sin(this.heading) * this.speed;
+    const moveSpeed = this.persister ? this.speed * PERSISTER_SPEED_MULT : this.speed;
+    this.x += Math.cos(this.heading) * moveSpeed;
+    this.y += Math.sin(this.heading) * moveSpeed;
 
     // ----- Soft boundary: push back toward dish center if past edge -----
     const dxC = this.x - sim.dish.cx, dyC = this.y - sim.dish.cy;
@@ -800,9 +1022,17 @@ class Cell {
     // Antibiotic event damage (only when an antibiotic event is active)
     const eventDamage    = (sim.event && sim.event.type === 'antibiotic')
       ? ANTIBIOTIC_DAMAGE * (1 - this.toxinResistance) : 0;
-    const metabolicCost  = movementCost + sizeUpkeep + sensorUpkeep + senescenceCost
+    let metabolicCost    = movementCost + sizeUpkeep + sensorUpkeep + senescenceCost
                          + turnCost + resistanceCost + baseCost + tempCost;
-    this.energy -= metabolicCost + toxinDamage + eventDamage;
+    let liveToxinDamage  = toxinDamage;
+    let liveEventDamage  = eventDamage;
+    // Stage 9: persisters run a quiescent program — reduced metabolism + shielding
+    if (this.persister) {
+      metabolicCost   *= PERSISTER_METABOLISM_MULT;
+      liveToxinDamage *= PERSISTER_TOXIN_SHIELD;
+      liveEventDamage *= PERSISTER_ABX_SHIELD;
+    }
+    this.energy -= metabolicCost + liveToxinDamage + liveEventDamage;
 
     // ----- Excrete waste into local grid cell -----
     sim.toxinGrid[gi] = localToxin + metabolicCost * TOXIN_EMIT_RATE;
@@ -848,6 +1078,9 @@ class Cell {
     const c2 = new Cell(this.x + jitter(), this.y + jitter(), makeChild(), this.generation + 1, this.lineageId);
     c1.energy = CHILD_ENERGY;
     c2.energy = CHILD_ENERGY;
+    // Stage 10: vertical inheritance of CRISPR spacers (real CRISPR arrays are genomic)
+    c1.crisprSpacers = new Set(this.crisprSpacers);
+    c2.crisprSpacers = new Set(this.crisprSpacers);
     return [c1, c2];
   }
 
@@ -959,14 +1192,26 @@ class Cell {
     }
     ctx.closePath();
 
-    // Body fill
-    ctx.fillStyle = `hsl(${this.hue}, 80%, 62%)`;
+    // Body fill (desaturated when persistent — visibly quiescent but still vegetative)
+    ctx.fillStyle = this.persister
+      ? `hsl(${this.hue}, 35%, 48%)`
+      : `hsl(${this.hue}, 80%, 62%)`;
     ctx.fill();
 
-    // Membrane outline
-    ctx.strokeStyle = `hsla(${this.hue}, 95%, 78%, 0.55)`;
-    ctx.lineWidth = 0.9;
+    // Membrane outline — infected cells get an angry red-orange ring, persisters get a dashed pale ring
+    if (this.infected) {
+      ctx.strokeStyle = `hsla(15, 100%, 60%, 0.85)`;
+      ctx.lineWidth = 1.6;
+    } else if (this.persister) {
+      ctx.setLineDash([2, 2]);
+      ctx.strokeStyle = `hsla(${this.hue}, 50%, 85%, 0.6)`;
+      ctx.lineWidth = 1.1;
+    } else {
+      ctx.strokeStyle = `hsla(${this.hue}, 95%, 78%, 0.55)`;
+      ctx.lineWidth = 0.9;
+    }
     ctx.stroke();
+    if (this.persister) ctx.setLineDash([]); // reset dash so it doesn't leak to subsequent draws
 
     // Nucleus / organelle hint (positioned slightly off-center toward the back)
     ctx.fillStyle = `hsla(${this.hue}, 90%, 88%, 0.55)`;
@@ -1105,6 +1350,137 @@ class Flash {
 }
 
 // ============================================================
+// PHAGE (Stage 10) — lineage-specific virus
+// ============================================================
+class Phage {
+  constructor(x, y, targetLineage) {
+    this.x = x; this.y = y;
+    this.heading = Math.random() * Math.PI * 2;
+    this.targetLineage = targetLineage;
+    this.hue = lineageHue(targetLineage);   // visually encodes which lineage it hunts
+    this.dead = false;
+    this.age = 0;
+  }
+
+  step(sim) {
+    // Host-seeking — aggregate-level phage populations concentrate where target
+    // hosts are dense (lysis releases phages there, and Brownian flow biases
+    // accordingly). We approximate with a gentle gradient toward target cells.
+    let gx = 0, gy = 0;
+    for (const c of sim.cells) {
+      if (c.dead || c.dormant || c.persister || c.infected) continue;
+      if (c.lineageId !== this.targetLineage) continue;
+      if (c.crisprSpacers.has(this.targetLineage)) continue;
+      const dx = c.x - this.x, dy = c.y - this.y;
+      const d = Math.hypot(dx, dy);
+      if (d > PHAGE_SENSE_RANGE || d < 0.1) continue;
+      const w = 1 / (d + 1);
+      gx += (dx / d) * w;
+      gy += (dy / d) * w;
+    }
+    if (gx !== 0 || gy !== 0) {
+      const mag = Math.hypot(gx, gy);
+      const targetH = Math.atan2(gy, gx);
+      let dh = targetH - this.heading;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      const conf = Math.min(1, mag * 6);
+      this.heading += clamp(dh, -0.2, 0.2) * conf;
+      // Reduced jitter when locked on, full jitter when drifting blind
+      this.heading += (Math.random() - 0.5) * PHAGE_JITTER * (1 - conf * 0.6);
+    } else {
+      // Pure Brownian — no signal in range
+      this.heading += (Math.random() - 0.5) * PHAGE_JITTER;
+    }
+    this.x += Math.cos(this.heading) * PHAGE_SPEED;
+    this.y += Math.sin(this.heading) * PHAGE_SPEED;
+    // Bounce off dish wall softly
+    const dxC = this.x - sim.dish.cx, dyC = this.y - sim.dish.cy;
+    const distC = Math.hypot(dxC, dyC) || 1e-9;
+    if (distC > sim.dish.radius - 2) {
+      // reflect inward
+      this.x -= (dxC / distC) * 2;
+      this.y -= (dyC / distC) * 2;
+      this.heading = Math.atan2(-dyC, -dxC) + (Math.random() - 0.5) * 0.5;
+    }
+    this.age++;
+    // Decay without a host — real virion particles degrade in aqueous environments
+    if (Math.random() < PHAGE_DECAY) { this.dead = true; return; }
+    // Contact check against cells of matching lineage
+    for (const cell of sim.cells) {
+      if (cell.dead) continue;
+      if (cell.dormant || cell.persister) continue;      // no active machinery to hijack
+      if (cell.infected) continue;                        // already infected, skip
+      if (cell.lineageId !== this.targetLineage) continue; // tropism mismatch
+      if (cell.crisprSpacers.has(this.targetLineage)) continue; // CRISPR cleavage — immune
+      const dx = cell.x - this.x, dy = cell.y - this.y;
+      const r = cell.size + PHAGE_RADIUS;
+      if (dx * dx + dy * dy > r * r) continue;
+      if (Math.random() < PHAGE_INFECTION_PROB) {
+        cell.infected = true;
+        cell.infectionTicks = PHAGE_INCUBATION;
+        cell.infectionPhageLineage = this.targetLineage;
+        this.dead = true; // phage enters cell, no longer free
+        return;
+      }
+    }
+  }
+
+  draw(ctx) {
+    // Small jittery dot in the target lineage hue — visual hint of who it targets
+    ctx.fillStyle = `hsl(${this.hue}, 90%, 65%)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, PHAGE_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    // Dark center pip for menace
+    ctx.fillStyle = `hsla(${this.hue}, 90%, 25%, 0.85)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, PHAGE_RADIUS * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// LYSIS (visual burst when a phage-infected cell dies)
+// ============================================================
+class Lysis {
+  constructor(x, y, hue) {
+    this.x = x; this.y = y;
+    this.hue = hue;
+    this.age = 0;
+    this.maxAge = 22;
+    // Pre-generate radial debris vectors
+    this.shards = [];
+    const N = 9;
+    for (let i = 0; i < N; i++) {
+      const ang = (i / N) * Math.PI * 2 + Math.random() * 0.3;
+      this.shards.push({ ang, sp: 0.8 + Math.random() * 1.2 });
+    }
+  }
+  step() { this.age++; return this.age < this.maxAge; }
+  draw(ctx) {
+    const t = this.age / this.maxAge;
+    const a = (1 - t) * 0.9;
+    // Outer dispersing ring
+    ctx.strokeStyle = `hsla(${this.hue}, 85%, 55%, ${a * 0.8})`;
+    ctx.lineWidth = 2.0 * (1 - t * 0.4);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 3 + t * 36, 0, Math.PI * 2);
+    ctx.stroke();
+    // Debris shards
+    ctx.fillStyle = `hsla(${this.hue}, 90%, 70%, ${a})`;
+    for (const s of this.shards) {
+      const r = t * 30 * s.sp;
+      const px = this.x + Math.cos(s.ang) * r;
+      const py = this.y + Math.sin(s.ang) * r;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.6 * (1 - t), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ============================================================
 // SIM
 // ============================================================
 const Sim = {
@@ -1124,6 +1500,9 @@ const Sim = {
   predationEvents: 0,
   hgtEvents: 0,        // Stage 8: cumulative HGT transfer count
   hgtBridges: [],      // Stage 8: ephemeral visual bridges between donor/recipient
+  phages: [],          // Stage 10: viral particles drifting in dish
+  lyses: [],           // Stage 10: lysis burst animations
+  lysisEvents: 0,      // Stage 10: cumulative lysis count
   toxinGrid: null,
   toxinCols: 0,
   toxinRows: 0,
@@ -1188,6 +1567,10 @@ const Sim = {
     this.predationEvents = 0;
     this.hgtEvents = 0;
     this.hgtBridges = [];
+    // Stage 10: phages + lysis animations
+    this.phages = [];
+    this.lyses = [];
+    this.lysisEvents = 0;
     this.event = null;
     this.eventHistory = [];
     this.lineages = new Map();
@@ -1204,6 +1587,36 @@ const Sim = {
     }
     // Seed with food
     for (let i = 0; i < 60; i++) this.spawnFood();
+    // Stage 10: seed phages — one per founder lineage, scattered in the dish
+    for (let i = 0; i < PHAGE_INITIAL_COUNT; i++) {
+      const [x, y] = this.randomDishPoint(24);
+      this.phages.push(new Phage(x, y, i % INITIAL_POPULATION));
+    }
+  },
+
+  // Stage 10: handle a phage-induced cell lysis. Spawns burst phages, lysis
+  // animation, and broadcasts the spacer to nearby surviving cells (witnessed-kill
+  // model of CRISPR adaptation — biologically a real mechanism).
+  spawnLysis(cell) {
+    const lineage = cell.infectionPhageLineage;
+    this.lyses.push(new Lysis(cell.x, cell.y, lineageHue(lineage)));
+    this.lysisEvents++;
+    // Burst phages — inherit target lineage from parent phage
+    for (let i = 0; i < PHAGE_BURST_SIZE; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.random() * 6;
+      this.phages.push(new Phage(cell.x + Math.cos(ang) * r, cell.y + Math.sin(ang) * r, lineage));
+    }
+    // Spacer broadcast — nearby cells may acquire immunity from witnessing the kill
+    const rr = SPACER_ACQUIRE_RADIUS * SPACER_ACQUIRE_RADIUS;
+    for (const c of this.cells) {
+      if (c === cell || c.dead) continue;
+      if (c.crisprSpacers.size >= SPACER_MAX) continue;
+      if (c.crisprSpacers.has(lineage)) continue;
+      const dx = c.x - cell.x, dy = c.y - cell.y;
+      if (dx * dx + dy * dy > rr) continue;
+      if (Math.random() < SPACER_ACQUIRE_PROB) c.crisprSpacers.add(lineage);
+    }
   },
 
   // Stage 8: Horizontal gene transfer. For every contact pair, small per-tick
@@ -1214,10 +1627,10 @@ const Sim = {
     const cells = this.cells;
     for (let i = 0; i < cells.length; i++) {
       const a = cells[i];
-      if (a.dead || a.dormant) continue;
+      if (a.dead || a.dormant || a.persister) continue;
       for (let j = i + 1; j < cells.length; j++) {
         const b = cells[j];
-        if (b.dead || b.dormant) continue;
+        if (b.dead || b.dormant || b.persister) continue;
         const dx = a.x - b.x, dy = a.y - b.y;
         const r = a.size + b.size + 1;
         if (dx * dx + dy * dy > r * r) continue;
@@ -1229,6 +1642,20 @@ const Sim = {
         recipient[trait] = donor[trait];
         this.hgtEvents++;
         this.hgtBridges.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, life: HGT_BRIDGE_TICKS });
+        // Stage 10: chance to also transfer a CRISPR spacer (immunity goes lateral)
+        if (donor.crisprSpacers.size > 0 &&
+            recipient.crisprSpacers.size < SPACER_MAX &&
+            Math.random() < SPACER_HGT_TRANSFER_PROB) {
+          // Pick a random spacer the recipient doesn't already have
+          const candidates = [];
+          for (const sp of donor.crisprSpacers) {
+            if (!recipient.crisprSpacers.has(sp)) candidates.push(sp);
+          }
+          if (candidates.length > 0) {
+            const picked = candidates[Math.floor(Math.random() * candidates.length)];
+            recipient.crisprSpacers.add(picked);
+          }
+        }
       }
     }
   },
@@ -1279,7 +1706,7 @@ const Sim = {
     // Divisions
     const newCells = [];
     for (const cell of this.cells) {
-      if (cell.energy >= DIVISION_THRESHOLD && (this.cells.length + newCells.length) < this.maxPopulation) {
+      if (!cell.persister && cell.energy >= DIVISION_THRESHOLD && (this.cells.length + newCells.length) < this.maxPopulation) {
         const [c1, c2] = cell.divide(this);
         newCells.push(c1, c2);
         cell.dead = true;
@@ -1314,6 +1741,18 @@ const Sim = {
     this.flashes = this.flashes.filter(f => f.step());
     // Tick consumption animations
     this.consumptions = this.consumptions.filter(c => c.step());
+    // Stage 10: step phages and cull dead/decayed/infecting
+    for (const ph of this.phages) ph.step(this);
+    this.phages = this.phages.filter(ph => !ph.dead);
+    // Spontaneous phage emergence — rare, random target lineage among existing founders
+    if (Math.random() < PHAGE_SPONTANEOUS_RATE && this.lineages && this.lineages.size > 0) {
+      const ids = Array.from(this.lineages.keys());
+      const targ = ids[Math.floor(Math.random() * ids.length)];
+      const [x, y] = this.randomDishPoint(24);
+      this.phages.push(new Phage(x, y, targ));
+    }
+    // Tick lysis animations
+    this.lyses = this.lyses.filter(l => l.step());
 
     // Decay toxin field
     if (this.toxinGrid) {
@@ -1442,6 +1881,10 @@ function render() {
   for (const cn of Sim.consumptions) cn.draw(ctx);
   // Predation flashes (top)
   for (const fl of Sim.flashes) fl.draw(ctx);
+  // Stage 10: phages (small dots in target lineage hue)
+  for (const ph of Sim.phages) ph.draw(ctx);
+  // Stage 10: lysis bursts (drawn above phages so the moment of death reads loud)
+  for (const ly of Sim.lyses) ly.draw(ctx);
   // HGT bridges — short-lived filaments between donor/recipient
   for (let i = Sim.hgtBridges.length - 1; i >= 0; i--) {
     const b = Sim.hgtBridges[i];
@@ -1775,12 +2218,13 @@ function showInspector(cell) {
   el.innerHTML = `
     <div class="lineage-head">
       <span class="swatch" style="background: hsl(${cell.hue}, 80%, 60%)"></span>
-      <span>LINEAGE #${cell.lineageId}${cell.dormant ? ' · <span style="color:#9fb4c8">DORMANT</span>' : ''}</span>
+      <span>LINEAGE #${cell.lineageId}${cell.dormant ? ' · <span style="color:#9fb4c8">DORMANT</span>' : ''}${cell.persister ? ' · <span style="color:#d4b8ff">PERSISTER</span>' : ''}${cell.infected ? ' · <span style="color:#ff8a5f">INFECTED</span>' : ''}</span>
     </div>
     <div class="group">
       <div class="gh">cell</div>
       <div class="row"><span class="k">generation</span><span class="v">${cell.generation}</span></div>
-      <div class="row"><span class="k">age</span><span class="v">${cell.age} t${cell.dormant ? ` (spore +${cell.dormantTicks})` : ''}</span></div>
+      <div class="row"><span class="k">age</span><span class="v">${cell.age} t${cell.dormant ? ` (spore +${cell.dormantTicks})` : ''}${cell.persister ? ` (persist ${cell.persisterTicks} left)` : ''}${cell.infected ? ` (lysis in ${cell.infectionTicks})` : ''}</span></div>
+      <div class="row"><span class="k">CRISPR spacers</span><span class="v">${cell.crisprSpacers.size ? Array.from(cell.crisprSpacers).sort((a,b)=>a-b).join(',') : '—'}</span></div>
       <div class="row"><span class="k">energy</span><span class="v">${fmt(cell.energy, 0)} / ${DIVISION_THRESHOLD}</span></div>
     </div>
     <div class="group">
@@ -1834,12 +2278,20 @@ function updateStats() {
   $('s-preda').textContent = Sim.predationEvents;
   $('s-hgt').textContent = Sim.hgtEvents;
   let dormantCount = 0;
+  let persisterCount = 0;
+  let infectedCount = 0;
   let oldest = 0;
   for (const c of Sim.cells) {
     if (c.age > oldest) oldest = c.age;
     if (c.dormant) dormantCount++;
+    if (c.persister) persisterCount++;
+    if (c.infected) infectedCount++;
   }
   $('s-dormant').textContent = dormantCount;
+  $('s-persist').textContent = persisterCount;
+  $('s-phages').textContent = Sim.phages.length;
+  $('s-infected').textContent = infectedCount;
+  $('s-lysis').textContent = Sim.lysisEvents;
   $('s-age').textContent = oldest;
 
   if (Sim.cells.length > 0) {
@@ -1878,13 +2330,13 @@ function updateStats() {
 // Wire controls
 $('btn-pause').addEventListener('click', () => {
   Sim.paused = !Sim.paused;
-  $('btn-pause').textContent = Sim.paused ? 'PLAY' : 'PAUSE';
+  $('btn-pause').textContent = Sim.paused ? 'Play' : 'Pause';
   $('btn-pause').classList.toggle('active', Sim.paused);
 });
 
 $('btn-reset').addEventListener('click', () => {
   Sim.init(Sim.width, Sim.height);
-  $('btn-pause').textContent = 'PAUSE';
+  $('btn-pause').textContent = 'Pause';
   $('btn-pause').classList.remove('active');
   Sim.paused = false;
 });
@@ -1919,7 +2371,7 @@ $('btn-analytics').addEventListener('click', () => {
   // Pause sim if running
   if (!Sim.paused) {
     Sim.paused = true;
-    $('btn-pause').textContent = 'PLAY';
+    $('btn-pause').textContent = 'Play';
     $('btn-pause').classList.add('active');
   }
   $('analytics').classList.add('show');
@@ -1936,8 +2388,21 @@ window.addEventListener('resize', () => {
   }
 });
 
+// About modal — static prose, no canvas. Pauses sim on open.
+$('btn-about').addEventListener('click', () => {
+  if (!Sim.paused) {
+    Sim.paused = true;
+    $('btn-pause').textContent = 'Play';
+    $('btn-pause').classList.add('active');
+  }
+  $('about').classList.add('show');
+});
+$('about-close').addEventListener('click', () => {
+  $('about').classList.remove('show');
+});
+
 // Keyboard shortcuts
-// Space = play/pause, 1-4 = speeds (0.25/1/5/25x), A = toggle analytics
+// Space = play/pause, 1-4 = speeds, A = toggle analytics, B = toggle about, Esc = close any modal
 window.addEventListener('keydown', e => {
   // Don't hijack typing in inputs / sliders
   const tag = (e.target.tagName || '').toLowerCase();
@@ -1952,9 +2417,16 @@ window.addEventListener('keydown', e => {
     const btn = document.querySelector(`[data-speed="${speedMap[e.key]}"]`);
     if (btn) btn.click();
   } else if (e.key === 'a' || e.key === 'A') {
-    const isOpen = $('analytics').classList.contains('show');
-    if (isOpen) $('ana-close').click();
-    else $('btn-analytics').click();
+    const anaOpen = $('analytics').classList.contains('show');
+    if ($('about').classList.contains('show')) $('about-close').click();
+    if (anaOpen) $('ana-close').click(); else $('btn-analytics').click();
+  } else if (e.key === 'b' || e.key === 'B') {
+    const aboutOpen = $('about').classList.contains('show');
+    if ($('analytics').classList.contains('show')) $('ana-close').click();
+    if (aboutOpen) $('about-close').click(); else $('btn-about').click();
+  } else if (e.key === 'Escape') {
+    if ($('analytics').classList.contains('show')) $('ana-close').click();
+    if ($('about').classList.contains('show')) $('about-close').click();
   }
 });
 

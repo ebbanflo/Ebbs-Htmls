@@ -1,0 +1,2338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SUDOKU ROGUE v2 — Balatro Edition</title>
+<style>
+  /* =================================================================
+     RESET + BASE
+     ================================================================= */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0a0612;
+    color: #f3eee0;
+    font-family: 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow: hidden;
+    user-select: none;
+    cursor: default;
+  }
+  body {
+    position: relative;
+  }
+
+  /* =================================================================
+     ANIMATED PLASMA BACKGROUND (Balatro vibe)
+     Big blurred orbs orbiting + grain + vignette
+     ================================================================= */
+  .bg-stage {
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    background:
+      radial-gradient(ellipse at 50% 0%,  #1a0a2a 0%, #0a0612 60%, #050208 100%);
+    overflow: hidden;
+  }
+  .orb {
+    position: absolute;
+    width: 70vw;
+    height: 70vw;
+    max-width: 900px;
+    max-height: 900px;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    will-change: transform;
+  }
+  .orb-1 { background: radial-gradient(circle, #ff2d6f 0%, transparent 65%); animation: orb1 22s linear infinite; }
+  .orb-2 { background: radial-gradient(circle, #2d8eff 0%, transparent 65%); animation: orb2 28s linear infinite; }
+  .orb-3 { background: radial-gradient(circle, #a44aff 0%, transparent 65%); animation: orb3 32s linear infinite; }
+  .orb-4 { background: radial-gradient(circle, #ffb83a 0%, transparent 65%); animation: orb4 26s linear infinite; }
+  .orb-5 { background: radial-gradient(circle, #2dffb6 0%, transparent 65%); animation: orb5 36s linear infinite; opacity: 0.35; }
+
+  @keyframes orb1 {
+    0%   { transform: translate(-15vw, -15vh) scale(1); }
+    33%  { transform: translate(60vw, 20vh) scale(1.2); }
+    66%  { transform: translate(30vw, 70vh) scale(0.9); }
+    100% { transform: translate(-15vw, -15vh) scale(1); }
+  }
+  @keyframes orb2 {
+    0%   { transform: translate(70vw, -10vh) scale(1.1); }
+    50%  { transform: translate(-20vw, 50vh) scale(0.95); }
+    100% { transform: translate(70vw, -10vh) scale(1.1); }
+  }
+  @keyframes orb3 {
+    0%   { transform: translate(30vw, 80vh) scale(1); }
+    50%  { transform: translate(80vw, 10vh) scale(1.15); }
+    100% { transform: translate(30vw, 80vh) scale(1); }
+  }
+  @keyframes orb4 {
+    0%   { transform: translate(80vw, 60vh) scale(0.95); }
+    50%  { transform: translate(-10vw, -10vh) scale(1.1); }
+    100% { transform: translate(80vw, 60vh) scale(0.95); }
+  }
+  @keyframes orb5 {
+    0%   { transform: translate(20vw, 40vh) scale(1.1); }
+    50%  { transform: translate(60vw, 80vh) scale(0.85); }
+    100% { transform: translate(20vw, 40vh) scale(1.1); }
+  }
+
+  /* Film grain overlay */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  /* Vignette */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+  }
+
+  /* =================================================================
+     APP LAYOUT
+     ================================================================= */
+  #app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .screen {
+    width: 100%;
+    max-width: 1040px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .screen.screen-intro {
+    animation: screenIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes screenIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* =================================================================
+     TITLE
+     ================================================================= */
+  .game-title {
+    font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    font-size: clamp(56px, 9vw, 110px);
+    letter-spacing: 4px;
+    line-height: 0.95;
+    text-align: center;
+    background: linear-gradient(180deg, #ffe1a4 0%, #ffb83a 40%, #ff2d6f 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 2px #1a0612;
+    text-shadow:
+      0 4px 0 rgba(0,0,0,0.5),
+      0 0 30px rgba(255, 45, 111, 0.4),
+      0 0 60px rgba(255, 184, 58, 0.2);
+    filter: drop-shadow(0 8px 18px rgba(0,0,0,0.6));
+    animation: titleFloat 4s ease-in-out infinite;
+  }
+  @keyframes titleFloat {
+    0%, 100% { transform: translateY(0) rotate(-1deg); }
+    50%      { transform: translateY(-6px) rotate(1deg); }
+  }
+  .game-sub {
+    font-family: 'Impact', sans-serif;
+    font-size: 18px;
+    letter-spacing: 6px;
+    color: #ffe1a4;
+    opacity: 0.85;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 14px rgba(255, 225, 164, 0.4);
+  }
+  .section-title {
+    font-family: 'Impact', sans-serif;
+    font-size: 38px;
+    letter-spacing: 5px;
+    color: #ffe1a4;
+    text-shadow: 0 3px 0 #1a0612, 0 0 18px rgba(255, 225, 164, 0.4);
+  }
+
+  /* =================================================================
+     CHUNKY 3D BUTTONS (Balatro style)
+     ================================================================= */
+  .btn {
+    --btn-bg: #2a1a3a;
+    --btn-hi: #463560;
+    --btn-lo: #150820;
+    --btn-edge: #08030f;
+    --btn-fg: #f3eee0;
+    background: linear-gradient(180deg, var(--btn-hi) 0%, var(--btn-bg) 50%, var(--btn-lo) 100%);
+    color: var(--btn-fg);
+    border: none;
+    padding: 14px 28px;
+    font-family: 'Impact', sans-serif;
+    font-size: 17px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    border-radius: 10px;
+    box-shadow:
+      0 5px 0 var(--btn-edge),
+      0 6px 0 rgba(0,0,0,0.3),
+      0 10px 18px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: transform 0.12s cubic-bezier(0.22, 1.5, 0.36, 1),
+                box-shadow 0.12s,
+                filter 0.12s;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.6);
+    position: relative;
+    top: 0;
+  }
+  .btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+    box-shadow:
+      0 7px 0 var(--btn-edge),
+      0 8px 0 rgba(0,0,0,0.3),
+      0 14px 24px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow:
+      0 1px 0 var(--btn-edge),
+      0 2px 0 rgba(0,0,0,0.3),
+      0 4px 8px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+  .btn.primary {
+    --btn-bg: #c0244f;
+    --btn-hi: #ff5882;
+    --btn-lo: #6a0e2a;
+    --btn-edge: #2a0410;
+  }
+  .btn.gold {
+    --btn-bg: #c08b1e;
+    --btn-hi: #ffd870;
+    --btn-lo: #6a4810;
+    --btn-edge: #2a1b04;
+  }
+  .btn.cyan {
+    --btn-bg: #1e7ec0;
+    --btn-hi: #58baff;
+    --btn-lo: #0e3e6a;
+    --btn-edge: #04142a;
+  }
+  .btn.green {
+    --btn-bg: #2ea867;
+    --btn-hi: #5cd998;
+    --btn-lo: #155632;
+    --btn-edge: #062014;
+  }
+  .btn.small {
+    padding: 10px 18px;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  /* =================================================================
+     CHARACTER SELECT (joker-card style)
+     ================================================================= */
+  .char-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    width: 100%;
+    perspective: 1000px;
+  }
+  .char-card {
+    background: linear-gradient(160deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #ffe1a4;
+    padding: 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 270px;
+    box-shadow:
+      0 6px 0 #08030f,
+      0 12px 24px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: transform 0.25s cubic-bezier(0.22, 1.5, 0.36, 1), box-shadow 0.25s;
+    transform-style: preserve-3d;
+    position: relative;
+    overflow: hidden;
+  }
+  .char-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  .char-card:hover {
+    transform: translateY(-10px) rotateX(4deg) scale(1.04);
+    box-shadow:
+      0 12px 0 #08030f,
+      0 24px 40px rgba(255, 45, 111, 0.3),
+      0 0 30px rgba(255, 184, 58, 0.3),
+      inset 0 1px 0 rgba(255,255,255,0.15);
+    border-color: #ff5882;
+  }
+  .char-card:hover::before {
+    transform: translateX(100%);
+  }
+  .char-card .emoji {
+    font-size: 38px;
+    text-align: center;
+    margin: 6px 0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  }
+  .char-card .name {
+    font-family: 'Impact', sans-serif;
+    font-size: 17px;
+    color: #ffe1a4;
+    letter-spacing: 2px;
+    text-align: center;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+  }
+  .char-card .passive {
+    font-size: 12px;
+    color: #d8d3c5;
+    line-height: 1.45;
+    text-align: center;
+  }
+  .char-card .start {
+    font-size: 11px;
+    color: #58baff;
+    margin-top: auto;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* =================================================================
+     GAME HUD (chunky panel)
+     ================================================================= */
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    max-width: 780px;
+    padding: 14px 24px;
+    background: linear-gradient(180deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #463560;
+    border-radius: 14px;
+    box-shadow:
+      0 5px 0 #08030f,
+      0 10px 24px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    gap: 16px;
+  }
+  .hud-left, .hud-right {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .hud-right { align-items: flex-end; }
+  .hud-mid {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 6px 18px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 10px;
+    border: 2px solid #08030f;
+  }
+  .label {
+    font-family: 'Impact', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #8a8095;
+    text-transform: uppercase;
+  }
+  .score {
+    font-family: 'Impact', sans-serif;
+    font-size: 36px;
+    color: #ffe1a4;
+    text-shadow: 0 3px 0 #1a0612, 0 0 18px rgba(255, 225, 164, 0.5);
+    letter-spacing: 1px;
+    line-height: 1;
+    transition: transform 0.15s;
+  }
+  .score.bump {
+    animation: scoreBump 0.4s cubic-bezier(0.22, 1.8, 0.36, 1);
+  }
+  @keyframes scoreBump {
+    0%, 100% { transform: scale(1); }
+    40%      { transform: scale(1.18); }
+  }
+  .mult-chip {
+    font-family: 'Impact', sans-serif;
+    font-size: 28px;
+    color: #fff;
+    background: linear-gradient(180deg, #ff5882 0%, #c0244f 100%);
+    padding: 4px 14px;
+    border-radius: 8px;
+    border: 2px solid #6a0e2a;
+    box-shadow:
+      0 3px 0 #2a0410,
+      0 0 16px rgba(255, 45, 111, 0.5),
+      inset 0 1px 0 rgba(255,255,255,0.2);
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+    line-height: 1;
+    transition: transform 0.2s cubic-bezier(0.22, 1.8, 0.36, 1);
+  }
+  .mult-chip.bump { animation: multBump 0.5s cubic-bezier(0.22, 1.8, 0.36, 1); }
+  @keyframes multBump {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    30%      { transform: scale(1.3) rotate(-3deg); }
+    60%      { transform: scale(1.1) rotate(2deg); }
+  }
+  .lives {
+    font-size: 22px;
+    color: #ff5882;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 0 #2a0410, 0 0 12px rgba(255, 45, 111, 0.6);
+  }
+  .target {
+    font-family: 'Impact', sans-serif;
+    font-size: 15px;
+    color: #58baff;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 0 #04142a, 0 0 8px rgba(88, 186, 255, 0.4);
+  }
+
+  /* =================================================================
+     SUDOKU BOARD
+     ================================================================= */
+  .board-wrap {
+    position: relative;
+    display: inline-block;
+    padding: 8px;
+    background: linear-gradient(180deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #463560;
+    border-radius: 16px;
+    box-shadow:
+      0 8px 0 #08030f,
+      0 16px 30px rgba(0,0,0,0.6),
+      0 0 60px rgba(255, 45, 111, 0.15),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform 0.08s;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(9, 50px);
+    grid-template-rows: repeat(9, 50px);
+    background: #08030f;
+    padding: 4px;
+    border-radius: 10px;
+    gap: 0;
+  }
+  .cell {
+    width: 50px;
+    height: 50px;
+    background: #1a0e26;
+    border: 1px solid #2a1a3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Impact', sans-serif;
+    font-size: 26px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.12s, transform 0.12s, box-shadow 0.12s;
+    overflow: visible;
+  }
+  .cell:hover:not(.given) {
+    background: #2a1a3a;
+    transform: scale(1.05);
+    z-index: 2;
+  }
+  /* Heavy box separators */
+  .cell.box-right { border-right: 3px solid #ffe1a4; }
+  .cell.box-bottom { border-bottom: 3px solid #ffe1a4; }
+  .cell.box-right.box-bottom { border-right: 3px solid #ffe1a4; border-bottom: 3px solid #ffe1a4; }
+  .cell.given {
+    color: #f3eee0;
+    cursor: default;
+    background: #0e0518;
+    text-shadow: 0 2px 0 #000;
+  }
+  .cell.given:hover { background: #0e0518; transform: none; }
+  .cell.placed {
+    color: #58baff;
+    text-shadow: 0 0 10px #58baff, 0 0 18px #58baff, 0 2px 0 #04142a;
+  }
+  /* cell-pop is added only to the just-placed cell post-render so
+     existing placed numbers don't re-animate on every state change. */
+  .cell.cell-pop {
+    animation: cellPlace 0.5s cubic-bezier(0.22, 1.8, 0.36, 1);
+  }
+  @keyframes cellPlace {
+    0%   { transform: scale(0) rotate(-180deg); }
+    60%  { transform: scale(1.4) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  .cell.selected {
+    background: #463560;
+    box-shadow: inset 0 0 0 3px #ffe1a4, 0 0 20px rgba(255, 225, 164, 0.4);
+    z-index: 3;
+  }
+  .cell.highlight {
+    background: #261438;
+  }
+  .cell.wrong-flash {
+    animation: wrongFlash 0.5s;
+  }
+  @keyframes wrongFlash {
+    0%   { background: #ff2d6f; transform: scale(1.15) rotate(-3deg); }
+    25%  { transform: scale(0.95) rotate(3deg); }
+    50%  { transform: scale(1.05) rotate(-2deg); }
+    100% { background: #1a0e26; transform: scale(1) rotate(0deg); }
+  }
+  .cell.complete-flash {
+    animation: completeFlash 0.7s;
+  }
+  @keyframes completeFlash {
+    0%, 100% { background: #1a0e26; }
+    40%      { background: rgba(255, 225, 164, 0.5); box-shadow: 0 0 24px rgba(255, 225, 164, 0.7); }
+  }
+  .cell.cursed-row {
+    background: linear-gradient(180deg, #2a0410 0%, #1a0e26 100%);
+  }
+  .cell.blind-hidden { color: transparent; }
+  .cell.blind-hidden:hover { color: #f3eee0; }
+
+  /* Special cell glows */
+  .cell.special-gold   { box-shadow: inset 0 0 14px #ffd870, 0 0 14px rgba(255, 184, 58, 0.4); }
+  .cell.special-mult   { box-shadow: inset 0 0 14px #ff5882, 0 0 14px rgba(255, 45, 111, 0.4); }
+  .cell.special-echo   { box-shadow: inset 0 0 14px #58baff, 0 0 14px rgba(88, 186, 255, 0.4); }
+  .cell.special-freeze { box-shadow: inset 0 0 14px #b6dfff, 0 0 14px rgba(182, 223, 255, 0.4); }
+  .cell.special-curse  { box-shadow: inset 0 0 14px #a44aff, 0 0 14px rgba(164, 74, 255, 0.4); }
+  .cell.special-joker  { box-shadow: inset 0 0 14px #ff7eff, 0 0 14px rgba(255, 126, 255, 0.4); }
+  .cell.special-oracle { box-shadow: inset 0 0 14px #ffffff, 0 0 14px rgba(255, 255, 255, 0.5); }
+  .cell.special-bomb   { box-shadow: inset 0 0 14px #ff5500, 0 0 14px rgba(255, 85, 0, 0.5); }
+
+  /* Pulse for special cells */
+  .cell[class*="special-"] { animation: specialPulse 2s ease-in-out infinite; }
+  @keyframes specialPulse {
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(1.3); }
+  }
+
+  .cell .special-icon {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: 11px;
+    opacity: 0.95;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));
+  }
+
+  /* Board shake */
+  .board-wrap.shake { animation: boardShake 0.4s; }
+  @keyframes boardShake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-6px, -3px); }
+    20% { transform: translate(7px, 2px); }
+    30% { transform: translate(-5px, 4px); }
+    40% { transform: translate(6px, -2px); }
+    50% { transform: translate(-4px, 3px); }
+    60% { transform: translate(5px, -4px); }
+    70% { transform: translate(-3px, 2px); }
+    80% { transform: translate(4px, -1px); }
+    90% { transform: translate(-2px, 1px); }
+  }
+
+  /* =================================================================
+     NUMBER PAD (chunky chips)
+     ================================================================= */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 540px;
+  }
+  .numpad button {
+    padding: 14px 0;
+    font-size: 22px;
+    letter-spacing: 0;
+    font-family: 'Impact', sans-serif;
+    --btn-bg: #1e2e44;
+    --btn-hi: #345878;
+    --btn-lo: #0a1424;
+  }
+  .numpad button.active {
+    --btn-bg: #c08b1e;
+    --btn-hi: #ffd870;
+    --btn-lo: #6a4810;
+    --btn-edge: #2a1b04;
+    color: #fff;
+    text-shadow: 0 0 10px #fff, 0 2px 0 rgba(0,0,0,0.5);
+  }
+
+  /* =================================================================
+     POWERUP TRAY (joker cards)
+     ================================================================= */
+  .tray {
+    display: flex;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 14px;
+    background: linear-gradient(180deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #463560;
+    border-radius: 14px;
+    box-shadow:
+      0 5px 0 #08030f,
+      0 10px 24px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    perspective: 800px;
+  }
+  .tray-slot {
+    width: 160px;
+    height: 100px;
+    background: #0e0518;
+    border: 2px dashed #463560;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    cursor: default;
+    transition: transform 0.2s cubic-bezier(0.22, 1.8, 0.36, 1), box-shadow 0.2s;
+    text-align: center;
+    transform-style: preserve-3d;
+    position: relative;
+    overflow: hidden;
+  }
+  .tray-slot.filled {
+    background: linear-gradient(160deg, #2a1a3a 0%, #150820 70%, #1e0a30 100%);
+    border: 3px solid #ffe1a4;
+    box-shadow:
+      0 4px 0 #08030f,
+      0 8px 16px rgba(0,0,0,0.5),
+      0 0 14px rgba(255, 225, 164, 0.3),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    cursor: pointer;
+  }
+  .tray-slot.filled:hover {
+    transform: translateY(-8px) rotateX(8deg) scale(1.05);
+    box-shadow:
+      0 10px 0 #08030f,
+      0 16px 26px rgba(0,0,0,0.5),
+      0 0 28px rgba(255, 225, 164, 0.6);
+    z-index: 5;
+  }
+  .tray-slot.filled::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+    transform: translateX(-100%);
+    transition: transform 0.7s;
+    border-radius: 7px;
+    pointer-events: none;
+  }
+  .tray-slot.filled:hover::before { transform: translateX(100%); }
+  .tray-slot .pname {
+    font-family: 'Impact', sans-serif;
+    font-size: 13px;
+    color: #ffe1a4;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  }
+  .tray-slot .pdesc {
+    font-size: 10px;
+    color: #d8d3c5;
+    line-height: 1.3;
+    margin-top: 4px;
+  }
+  .tray-slot .empty {
+    font-family: 'Impact', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #463560;
+  }
+
+  /* =================================================================
+     FLOATING POPUPS
+     ================================================================= */
+  .float-popup {
+    position: absolute;
+    pointer-events: none;
+    font-family: 'Impact', sans-serif;
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: 0 0 10px currentColor, 0 3px 0 rgba(0,0,0,0.7);
+    z-index: 100;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+    15%  { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -80px) scale(1); }
+  }
+
+  /* Particle bursts */
+  .particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 99;
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  /* =================================================================
+     SHOP
+     ================================================================= */
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    width: 100%;
+    max-width: 780px;
+    perspective: 1000px;
+  }
+  .shop-item {
+    background: linear-gradient(160deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #ffe1a4;
+    padding: 18px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 200px;
+    box-shadow:
+      0 5px 0 #08030f,
+      0 10px 22px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.25s cubic-bezier(0.22, 1.5, 0.36, 1);
+    transform-style: preserve-3d;
+  }
+  .shop-item:hover {
+    transform: translateY(-6px) rotateX(3deg);
+  }
+  .shop-item.sold {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+  }
+  .shop-item .iname {
+    font-family: 'Impact', sans-serif;
+    color: #ffe1a4;
+    font-size: 18px;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+  }
+  .shop-item .idesc {
+    color: #d8d3c5;
+    font-size: 12px;
+    flex-grow: 1;
+    line-height: 1.4;
+  }
+  .shop-item .icost {
+    font-family: 'Impact', sans-serif;
+    color: #ff5882;
+    font-size: 16px;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  }
+
+  /* =================================================================
+     MODAL
+     ================================================================= */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    animation: fadeIn 0.25s;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .modal {
+    background: linear-gradient(160deg, #2a1a3a 0%, #150820 100%);
+    border: 3px solid #ff5882;
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow:
+      0 8px 0 #08030f,
+      0 16px 40px rgba(0,0,0,0.7),
+      0 0 60px rgba(255, 45, 111, 0.4);
+    max-width: 540px;
+    animation: modalPop 0.35s cubic-bezier(0.22, 1.8, 0.36, 1);
+  }
+  @keyframes modalPop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* =================================================================
+     BOSS BANNER
+     ================================================================= */
+  .boss-banner {
+    background: linear-gradient(90deg, rgba(255,45,111,0.2) 0%, rgba(255,45,111,0.5) 50%, rgba(255,45,111,0.2) 100%);
+    border: 3px solid #ff2d6f;
+    padding: 12px 24px;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Impact', sans-serif;
+    text-align: center;
+    letter-spacing: 4px;
+    margin: 6px 0;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 12px rgba(255, 45, 111, 0.8);
+    box-shadow:
+      0 4px 0 #2a0410,
+      0 0 30px rgba(255, 45, 111, 0.5),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    animation: bannerGlow 2.5s ease-in-out infinite;
+  }
+  @keyframes bannerGlow {
+    0%, 100% { box-shadow: 0 4px 0 #2a0410, 0 0 30px rgba(255,45,111,0.5), inset 0 1px 0 rgba(255,255,255,0.1); }
+    50%      { box-shadow: 0 4px 0 #2a0410, 0 0 50px rgba(255,45,111,0.8), inset 0 1px 0 rgba(255,255,255,0.15); }
+  }
+
+  .timer {
+    font-family: 'Impact', sans-serif;
+    font-size: 20px;
+    color: #ffe1a4;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 8px rgba(255, 225, 164, 0.5);
+    letter-spacing: 2px;
+  }
+  .timer.urgent {
+    color: #ff2d6f;
+    text-shadow: 0 0 14px #ff2d6f, 0 2px 0 #000;
+    animation: pulse 0.6s infinite;
+  }
+  @keyframes pulse {
+    50% { opacity: 0.5; transform: scale(1.1); }
+  }
+
+  /* =================================================================
+     END SCREENS
+     ================================================================= */
+  .end-score {
+    font-family: 'Impact', sans-serif;
+    font-size: 80px;
+    color: #ffe1a4;
+    text-shadow: 0 5px 0 #1a0612, 0 0 30px rgba(255, 225, 164, 0.6);
+    margin: 20px 0;
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+  .end-stat {
+    font-size: 17px;
+    color: #d8d3c5;
+    margin: 4px 0;
+    letter-spacing: 1px;
+  }
+  .end-stat .gold { color: #ffe1a4; font-family: 'Impact', sans-serif; font-size: 22px; }
+  .end-stat .cyan { color: #58baff; font-family: 'Impact', sans-serif; font-size: 22px; }
+  .end-stat .pink { color: #ff5882; font-family: 'Impact', sans-serif; font-size: 22px; }
+
+  /* =================================================================
+     UTILITY
+     ================================================================= */
+  .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .col { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .small { font-size: 12px; color: #8a8095; letter-spacing: 1px; }
+  .help-msg {
+    font-family: 'Impact', sans-serif;
+    font-size: 14px;
+    color: #ffe1a4;
+    letter-spacing: 2px;
+    min-height: 22px;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+    transition: opacity 0.3s;
+  }
+  .footer-info {
+    font-size: 11px;
+    color: #8a8095;
+    letter-spacing: 1px;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: linear-gradient(160deg, #2a1a3a 0%, #150820 100%);
+    border: 2px solid #ffe1a4;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #f3eee0;
+    pointer-events: none;
+    z-index: 300;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    max-width: 240px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- Plasma background layers -->
+<div class="bg-stage">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+  <div class="orb orb-5"></div>
+</div>
+<div class="grain"></div>
+<div class="vignette"></div>
+
+<div id="app"></div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   ================================================================
+   SUDOKU ROGUE v2 — Balatro Edition
+   ================================================================
+   ================================================================ */
+
+/* ================================================================
+   UTILITIES
+   ================================================================ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function randInt(n) { return Math.floor(Math.random() * n); }
+function pick(arr) { return arr[randInt(arr.length)]; }
+function fmt(n) { return Math.floor(n).toLocaleString('en-US'); }
+function deepCopyGrid(g) { return g.map(r => r.slice()); }
+
+/* ================================================================
+   SUDOKU GENERATION (backtracking + unique-solution check)
+   ================================================================ */
+function isValid(grid, row, col, num) {
+  for (let i = 0; i < 9; i++) {
+    if (grid[row][i] === num) return false;
+    if (grid[i][col] === num) return false;
+  }
+  const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++)
+      if (grid[r][c] === num) return false;
+  return true;
+}
+function fillGrid(grid) {
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      if (grid[row][col] === 0) {
+        const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+        for (const num of nums) {
+          if (isValid(grid, row, col, num)) {
+            grid[row][col] = num;
+            if (fillGrid(grid)) return true;
+            grid[row][col] = 0;
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function generateFullGrid() {
+  const grid = Array.from({length: 9}, () => Array(9).fill(0));
+  fillGrid(grid);
+  return grid;
+}
+function countSolutions(grid, limit) {
+  let count = 0;
+  function solve() {
+    if (count >= limit) return;
+    let row = -1, col = -1;
+    for (let r = 0; r < 9 && row < 0; r++)
+      for (let c = 0; c < 9; c++)
+        if (grid[r][c] === 0) { row = r; col = c; break; }
+    if (row < 0) { count++; return; }
+    for (let num = 1; num <= 9 && count < limit; num++) {
+      if (isValid(grid, row, col, num)) {
+        grid[row][col] = num;
+        solve();
+        grid[row][col] = 0;
+      }
+    }
+  }
+  solve();
+  return count;
+}
+function makePuzzle(fullGrid, targetRemove) {
+  const puzzle = deepCopyGrid(fullGrid);
+  const positions = shuffle(Array.from({length: 81}, (_, i) => [Math.floor(i/9), i%9]));
+  let removed = 0;
+  const start = performance.now();
+  const BUDGET_MS = 4000;
+  for (const [r, c] of positions) {
+    if (removed >= targetRemove) break;
+    if (performance.now() - start > BUDGET_MS) break;
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+    const test = deepCopyGrid(puzzle);
+    if (countSolutions(test, 2) !== 1) {
+      puzzle[r][c] = backup;
+    } else {
+      removed++;
+    }
+  }
+  return puzzle;
+}
+
+/* ================================================================
+   GAME DATA: POWERUPS, CHARACTERS, SPECIALS
+   ================================================================ */
+const POWERUPS = {
+  hot_streak:     { name: 'Hot Streak',     desc: 'Every 5 correct placements in a row, +2 MULT' },
+  the_lens:       { name: 'The Lens',       desc: 'Completing a box reveals empty cells in adjacent boxes' },
+  arbitrage:      { name: 'Arbitrage',      desc: 'Row+col together: that cell value ×10' },
+  dead_weight:    { name: 'Dead Weight',    desc: 'CURSE cells give +2 MULT instead of -1' },
+  chain_reaction: { name: 'Chain Reaction', desc: 'Completing a box scores all filled cells in it again' },
+  ghost_numbers:  { name: 'Ghost Numbers',  desc: 'Once per level: ghost placement (free mistake)' },
+  the_vault:      { name: 'The Vault',      desc: 'Once per level: bank score; hit target = bonus added' },
+  pressure_cooker:{ name: 'Pressure Cooker',desc: 'MULT +1 for every wrong placement' },
+  magnifier:      { name: 'Magnifier',      desc: 'Gold cells give ×5 instead of flat +500' },
+  sixth_sense:    { name: 'Sixth Sense',    desc: 'Once per level: reveal a cell\'s correct number' },
+};
+const POWERUP_KEYS = Object.keys(POWERUPS);
+
+const CHARACTERS = {
+  mathematician: {
+    name: 'The Mathematician', emoji: '∑',
+    passive: 'Completing a 3×3 box doubles that box\'s score contribution',
+    start: 'chain_reaction',
+  },
+  gambler: {
+    name: 'The Gambler', emoji: '🎲',
+    passive: '3 random cells per level secretly worth 10× when correct',
+    start: 'hot_streak',
+  },
+  hacker: {
+    name: 'The Hacker', emoji: '⌨',
+    passive: 'First wrong placement each level is forgiven',
+    start: 'ghost_numbers',
+  },
+  monk: {
+    name: 'The Monk', emoji: '☯',
+    passive: 'Wait >60s before first placement → +3 MULT',
+    start: 'sixth_sense',
+  },
+  chaos: {
+    name: 'The Chaos Agent', emoji: '⚡',
+    passive: 'MULT starts at 3 each level, but target scores ×1.5',
+    start: 'pressure_cooker',
+  },
+};
+
+const SPECIAL_TYPES = [
+  { key: 'gold',   icon: '💰', label: 'Gold' },
+  { key: 'mult',   icon: '✖',  label: 'Multiplier' },
+  { key: 'echo',   icon: '🔁', label: 'Echo' },
+  { key: 'freeze', icon: '❄',  label: 'Freeze' },
+  { key: 'curse',  icon: '💀', label: 'Curse' },
+  { key: 'joker',  icon: '🃏', label: 'Joker' },
+  { key: 'oracle', icon: '👁', label: 'Oracle' },
+  { key: 'bomb',   icon: '🔴', label: 'Bomb' },
+];
+const SPECIAL_COLORS = {
+  gold: '#ffd870', mult: '#ff5882', echo: '#58baff', freeze: '#b6dfff',
+  curse: '#a44aff', joker: '#ff7eff', oracle: '#ffffff', bomb: '#ff5500',
+};
+
+const LEVEL_TARGETS = [500, 2000, 8000, 30000, 120000, 500000, 2000000];
+const LEVEL_REMOVE  = [35, 35, 45, 45, 52, 52, 58];
+const BOSS_MODIFIERS = ['BLIND_MODE', 'CURSED_GRID', 'TICKING_CLOCK', 'MIRROR_CURSE'];
+
+/* ================================================================
+   GAME STATE
+   ================================================================ */
+let state = null;
+function freshState() {
+  return {
+    screen: 'title',
+    character: null,
+    level: 1,
+    lives: 3,
+    score: 0,
+    displayedScore: 0, // animated counter
+    mult: 1,
+    powerups: [],
+    pendingPowerupChoice: null,
+    puzzle: null, solution: null, given: null,
+    special: null,
+    selectedCell: null, selectedNum: null,
+    correctStreak: 0,
+    freezeRemaining: 0,
+    forgivenUsed: false, ghostUsed: false, sixthUsed: false,
+    vaultBanked: null,
+    bossModifier: null, cursedRow: null,
+    timerEndAt: null, timerInterval: null,
+    firstPlaceTime: null, levelStartTime: null,
+    patienceMultApplied: false,
+    gamblerCells: [], blindHidden: [],
+    levelTarget: 0, levelScoreAtStart: 0,
+    shopOffers: [], shopRerolled: false,
+    finalScore: 0,
+    _ghostArmed: false, _sixthArmed: false,
+    _completed: null,
+    _lastLevelHit: false, _lastLevelDelta: 0,
+  };
+}
+state = freshState();
+
+/* ================================================================
+   RENDER ROUTER
+   Each render rebuilds the screen DOM. Visual side effects fired
+   during placement (popups, particles, shake, bumps) are queued
+   or flagged on state, then applied in a post-render pass via
+   setTimeout(0) so they attach to the FRESH DOM. (Otherwise the
+   old elements get wiped before the browser ever paints them.)
+   ================================================================ */
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const isTransition = state.screen !== state._lastScreen;
+  if (isTransition) {
+    // Don't carry pending effects across screen boundaries
+    state._lastPlaced = null;
+    state._lastWrong = null;
+    state._bumpScore = false;
+    state._bumpMult = false;
+    state._shake = false;
+    _pendingFx = [];
+  }
+  state._lastScreen = state.screen;
+  let screenEl;
+  switch (state.screen) {
+    case 'title':         screenEl = renderTitle(); break;
+    case 'character':     screenEl = renderCharacterSelect(); break;
+    case 'levelStart':    screenEl = renderLevelStart(); break;
+    case 'puzzle':        screenEl = renderPuzzle(); break;
+    case 'levelComplete': screenEl = renderLevelComplete(); break;
+    case 'shop':          screenEl = renderShop(); break;
+    case 'gameOver':      screenEl = renderGameOver(); break;
+    case 'runComplete':   screenEl = renderRunComplete(); break;
+  }
+  if (screenEl) {
+    if (isTransition) screenEl.classList.add('screen-intro');
+    app.appendChild(screenEl);
+  }
+  if (state.pendingPowerupChoice) app.appendChild(renderDiscardModal());
+  setTimeout(_postRender, 0);
+}
+
+function _postRender() {
+  // Pop + complete-flash on the just-placed cell
+  if (state._lastPlaced) {
+    const [r, c] = state._lastPlaced;
+    const el = document.getElementById(`cell-${r}-${c}`);
+    if (el) {
+      el.classList.add('cell-pop');
+      el.classList.add('complete-flash');
+    }
+    state._lastPlaced = null;
+  }
+  // Wrong-flash on the just-mistyped cell
+  if (state._lastWrong) {
+    const [r, c] = state._lastWrong;
+    const el = document.getElementById(`cell-${r}-${c}`);
+    if (el) {
+      el.classList.add('wrong-flash');
+      setTimeout(() => el && el.classList.remove('wrong-flash'), 500);
+    }
+    state._lastWrong = null;
+  }
+  if (state._shake)     { _applyBoardShake(); state._shake = false; }
+  if (state._bumpScore) { _applyScoreBump();  state._bumpScore = false; }
+  if (state._bumpMult)  { _applyMultBump();   state._bumpMult = false; }
+  flushEffects();
+}
+
+/* ================================================================
+   TITLE
+   ================================================================ */
+function renderTitle() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  s.innerHTML = `
+    <h1 class="game-title">SUDOKU<br>ROGUE</h1>
+    <h2 class="game-sub">A 7-LEVEL RUN · PLACE NUMBERS · SCORE BIG</h2>
+    <p class="small">3 lives · 3 powerup slots · the boss awaits at level 7</p>
+  `;
+  const start = document.createElement('button');
+  start.className = 'btn primary';
+  start.textContent = 'Begin Run';
+  start.onclick = () => { state.screen = 'character'; render(); };
+  s.appendChild(start);
+  return s;
+}
+
+/* ================================================================
+   CHARACTER SELECT
+   ================================================================ */
+function renderCharacterSelect() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'CHOOSE YOUR CHARACTER';
+  s.appendChild(h);
+
+  const grid = document.createElement('div');
+  grid.className = 'char-grid';
+  for (const key of Object.keys(CHARACTERS)) {
+    const c = CHARACTERS[key];
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    card.innerHTML = `
+      <div class="emoji">${c.emoji}</div>
+      <div class="name">${c.name.toUpperCase()}</div>
+      <div class="passive">${c.passive}</div>
+      <div class="start">— starts with —<br>${POWERUPS[c.start].name}</div>
+    `;
+    card.onclick = () => {
+      state.character = key;
+      state.powerups = [c.start];
+      startLevel(1);
+    };
+    // 3D tilt on mouse move
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `translateY(-10px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) scale(1.04)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+    grid.appendChild(card);
+  }
+  s.appendChild(grid);
+  return s;
+}
+
+/* ================================================================
+   START A LEVEL
+   ================================================================ */
+function startLevel(levelNum) {
+  state.level = levelNum;
+  state.screen = 'levelStart';
+
+  const full = generateFullGrid();
+  const removeCount = LEVEL_REMOVE[levelNum - 1];
+  const puzzle = makePuzzle(full, removeCount);
+  state.solution = full;
+  state.puzzle = puzzle;
+  state.given = puzzle.map(row => row.map(v => v !== 0));
+
+  state.special = {};
+  const emptyCells = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (puzzle[r][c] === 0) emptyCells.push([r, c]);
+  const specialCount = 6 + randInt(3);
+  const chosen = shuffle(emptyCells).slice(0, specialCount);
+  for (const [r, c] of chosen) {
+    const type = pick(SPECIAL_TYPES);
+    state.special[`${r},${c}`] = { type: type.key, used: false };
+  }
+
+  // Per-level resets
+  state.correctStreak = 0;
+  state.freezeRemaining = 0;
+  state.forgivenUsed = false;
+  state.ghostUsed = false;
+  state.vaultBanked = null;
+  state.sixthUsed = false;
+  state.selectedCell = null;
+  state.selectedNum = null;
+  state.firstPlaceTime = null;
+  state.levelStartTime = Date.now();
+  state.patienceMultApplied = false;
+  state.gamblerCells = [];
+  state.blindHidden = [];
+  state.bossModifier = null;
+  state.cursedRow = null;
+  state._ghostArmed = false;
+  state._sixthArmed = false;
+  state._completed = null;
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  state.timerEndAt = null;
+
+  if (state.character === 'chaos') state.mult = 3;
+  let target = LEVEL_TARGETS[levelNum - 1];
+  if (state.character === 'chaos') target = Math.floor(target * 1.5);
+  state.levelTarget = target;
+  state.levelScoreAtStart = state.score;
+  state.displayedScore = state.score;
+
+  if (state.character === 'gambler') {
+    const cands = emptyCells.filter(([r,c]) => !state.special[`${r},${c}`]);
+    state.gamblerCells = shuffle(cands).slice(0, 3);
+  }
+  if (levelNum === 7) {
+    state.bossModifier = pick(BOSS_MODIFIERS);
+    applyBossModifier();
+  }
+  render();
+}
+
+function applyBossModifier() {
+  if (state.bossModifier === 'BLIND_MODE') {
+    const givens = [];
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (state.given[r][c]) givens.push([r,c]);
+    state.blindHidden = shuffle(givens).slice(0, Math.floor(givens.length * 0.2));
+  }
+  if (state.bossModifier === 'CURSED_GRID') state.cursedRow = randInt(9);
+  if (state.bossModifier === 'TICKING_CLOCK') state.timerEndAt = Date.now() + 5 * 60 * 1000;
+}
+
+/* ================================================================
+   LEVEL START SCREEN
+   ================================================================ */
+function renderLevelStart() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = `LEVEL ${state.level}${state.level === 7 ? ' — BOSS' : ''}`;
+  s.appendChild(h);
+  const info = document.createElement('div');
+  info.className = 'col';
+  info.innerHTML = `
+    <div class="end-stat">Target: <span class="gold">${fmt(state.levelTarget)}</span></div>
+    <div class="end-stat">Current: <span class="cyan">${fmt(state.score)}</span></div>
+    <div class="end-stat">MULT: <span class="pink">×${state.mult.toFixed(1)}</span> · Lives: ${'♥'.repeat(state.lives)}</div>
+    <div class="end-stat">Cells removed: ${LEVEL_REMOVE[state.level-1]}</div>
+  `;
+  s.appendChild(info);
+  if (state.bossModifier) {
+    const banner = document.createElement('div');
+    banner.className = 'boss-banner';
+    banner.textContent = `BOSS MODIFIER: ${state.bossModifier.replace('_', ' ')}`;
+    s.appendChild(banner);
+    const modDesc = document.createElement('div');
+    modDesc.className = 'small';
+    modDesc.textContent = bossDescription(state.bossModifier);
+    s.appendChild(modDesc);
+  }
+  const btn = document.createElement('button');
+  btn.className = 'btn primary';
+  btn.textContent = 'Begin Level';
+  btn.onclick = () => {
+    state.screen = 'puzzle';
+    if (state.bossModifier === 'TICKING_CLOCK') startTimer();
+    render();
+  };
+  s.appendChild(btn);
+  return s;
+}
+function bossDescription(mod) {
+  switch (mod) {
+    case 'BLIND_MODE': return '20% of given cells are hidden — hover to peek.';
+    case 'CURSED_GRID': return 'One random row drains -0.5 MULT per placement.';
+    case 'TICKING_CLOCK': return '5 minute timer. Time out = lose a life.';
+    case 'MIRROR_CURSE': return 'All CURSE cell effects are DOUBLED.';
+  }
+  return '';
+}
+
+function startTimer() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    if (state.screen !== 'puzzle') return;
+    const remain = state.timerEndAt - Date.now();
+    if (remain <= 0) {
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
+      timeOut();
+    } else {
+      const el = document.getElementById('timerDisplay');
+      if (el) {
+        const sec = Math.ceil(remain / 1000);
+        const m = Math.floor(sec / 60), s = sec % 60;
+        el.textContent = `⏱ ${m}:${String(s).padStart(2, '0')}`;
+        if (sec <= 30) el.classList.add('urgent'); else el.classList.remove('urgent');
+      }
+    }
+  }, 250);
+}
+function timeOut() {
+  state.lives--;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (state.puzzle[r][c] === 0) state.puzzle[r][c] = state.solution[r][c];
+  finishLevel(false);
+}
+
+/* ================================================================
+   PUZZLE SCREEN
+   ================================================================ */
+function renderPuzzle() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+
+  // HUD
+  const hud = document.createElement('div');
+  hud.className = 'hud';
+  hud.innerHTML = `
+    <div class="hud-left">
+      <div class="label">Level ${state.level} / 7</div>
+      <div class="target">Target ${fmt(state.levelTarget)}</div>
+      ${state.bossModifier === 'TICKING_CLOCK' ? '<div id="timerDisplay" class="timer">⏱ 5:00</div>' : ''}
+    </div>
+    <div class="hud-mid">
+      <div>
+        <div class="label">Score</div>
+        <div class="score" id="scoreDisplay">${fmt(state.displayedScore)}</div>
+      </div>
+      <div class="mult-chip" id="multChip">×${state.mult.toFixed(1)}</div>
+    </div>
+    <div class="hud-right">
+      <div class="label">Lives</div>
+      <div class="lives">${'♥'.repeat(state.lives)}${'♡'.repeat(Math.max(0,3-state.lives))}</div>
+    </div>
+  `;
+  s.appendChild(hud);
+
+  if (state.bossModifier) {
+    const banner = document.createElement('div');
+    banner.className = 'boss-banner';
+    banner.style.fontSize = '13px';
+    banner.style.padding = '8px 18px';
+    banner.textContent = `BOSS: ${state.bossModifier.replace('_',' ')}`;
+    s.appendChild(banner);
+  }
+
+  // Board
+  const wrap = document.createElement('div');
+  wrap.className = 'board-wrap';
+  wrap.id = 'boardWrap';
+  const board = document.createElement('div');
+  board.className = 'board';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.id = `cell-${r}-${c}`;
+      if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add('box-right');
+      if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add('box-bottom');
+      const v = state.puzzle[r][c];
+      const isGiven = state.given[r][c];
+      const sp = state.special[`${r},${c}`];
+      if (isGiven) {
+        cell.classList.add('given');
+        cell.textContent = v;
+        if (state.bossModifier === 'BLIND_MODE' && state.blindHidden.some(p => p[0]===r && p[1]===c)) {
+          cell.classList.add('blind-hidden');
+        }
+      } else if (v !== 0) {
+        cell.classList.add('placed');
+        cell.textContent = v;
+      }
+      if (state.selectedCell && state.selectedCell[0]===r && state.selectedCell[1]===c) {
+        cell.classList.add('selected');
+      } else if (state.selectedCell) {
+        const [sr, sc] = state.selectedCell;
+        if (sr === r || sc === c ||
+            (Math.floor(sr/3)===Math.floor(r/3) && Math.floor(sc/3)===Math.floor(c/3))) {
+          cell.classList.add('highlight');
+        }
+      }
+      if (state.cursedRow === r) cell.classList.add('cursed-row');
+      if (sp && !sp.used && !isGiven && state.puzzle[r][c] === 0) {
+        cell.classList.add(`special-${sp.type}`);
+        const icon = document.createElement('span');
+        icon.className = 'special-icon';
+        const def = SPECIAL_TYPES.find(t => t.key === sp.type);
+        icon.textContent = def.icon;
+        cell.appendChild(icon);
+      }
+      cell.onclick = () => onCellClick(r, c);
+      board.appendChild(cell);
+    }
+  }
+  wrap.appendChild(board);
+  s.appendChild(wrap);
+
+  // Numpad
+  const pad = document.createElement('div');
+  pad.className = 'numpad';
+  for (let n = 1; n <= 9; n++) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = n;
+    if (state.selectedNum === n) b.classList.add('active');
+    b.onclick = () => onNumPick(n);
+    pad.appendChild(b);
+  }
+  const clr = document.createElement('button');
+  clr.className = 'btn';
+  clr.textContent = '✕';
+  clr.title = 'Clear selection';
+  clr.onclick = () => { state.selectedNum = null; state.selectedCell = null; render(); };
+  pad.appendChild(clr);
+  s.appendChild(pad);
+
+  // Powerup tray
+  const tray = document.createElement('div');
+  tray.className = 'tray';
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'tray-slot';
+    const p = state.powerups[i];
+    if (p) {
+      slot.classList.add('filled');
+      const def = POWERUPS[p];
+      slot.innerHTML = `<div class="pname">${def.name}</div><div class="pdesc">${def.desc}</div>`;
+      slot.addEventListener('mousemove', e => {
+        const r = slot.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        slot.style.transform = `translateY(-8px) rotateY(${x * 12}deg) rotateX(${-y * 12}deg) scale(1.05)`;
+      });
+      slot.addEventListener('mouseleave', () => { slot.style.transform = ''; });
+      if (p === 'ghost_numbers' && !state.ghostUsed) {
+        slot.onclick = () => { state._ghostArmed = true; flashHelp('GHOST ARMED — your next wrong placement is free'); };
+      } else if (p === 'the_vault' && state.vaultBanked === null) {
+        slot.onclick = () => {
+          state.vaultBanked = state.score - state.levelScoreAtStart;
+          flashHelp(`VAULT BANKED: ${fmt(state.vaultBanked)} — paid out if you hit target`);
+          render();
+        };
+      } else if (p === 'sixth_sense' && !state.sixthUsed) {
+        slot.onclick = () => { state._sixthArmed = true; flashHelp('CLICK ANY EMPTY CELL TO SEE ITS NUMBER'); };
+      }
+    } else {
+      slot.innerHTML = '<div class="empty">EMPTY</div>';
+    }
+    tray.appendChild(slot);
+  }
+  s.appendChild(tray);
+
+  // Footer info
+  const help = document.createElement('div');
+  help.id = 'helpMsg';
+  help.className = 'help-msg';
+  s.appendChild(help);
+
+  let bits = [`Streak ${state.correctStreak}`];
+  if (state.freezeRemaining > 0) bits.push(`Freeze ${state.freezeRemaining}`);
+  if (state.vaultBanked !== null) bits.push(`Vault ${fmt(state.vaultBanked)}`);
+  const footer = document.createElement('div');
+  footer.className = 'footer-info';
+  footer.textContent = bits.join('  ·  ') + '  ·  Keys 1–9 to place  ·  Del to clear  ·  Arrows to move';
+  s.appendChild(footer);
+
+  return s;
+}
+
+function flashHelp(msg) {
+  const el = document.getElementById('helpMsg');
+  if (el) {
+    el.style.opacity = '0';
+    setTimeout(() => { el.textContent = msg; el.style.opacity = '1'; }, 100);
+  }
+}
+
+/* ================================================================
+   INPUT
+   ================================================================ */
+function onCellClick(r, c) {
+  if (state._sixthArmed && state.puzzle[r][c] === 0) {
+    state._sixthArmed = false;
+    state.sixthUsed = true;
+    flashHelp(`That cell should be: ${state.solution[r][c]}`);
+    return;
+  }
+  if (state.given[r][c]) return;
+  state.selectedCell = [r, c];
+  if (state.selectedNum) attemptPlace(r, c, state.selectedNum);
+  else render();
+}
+function onNumPick(n) {
+  state.selectedNum = n;
+  if (state.selectedCell) {
+    const [r, c] = state.selectedCell;
+    if (!state.given[r][c]) { attemptPlace(r, c, n); return; }
+  }
+  render();
+}
+window.addEventListener('keydown', e => {
+  if (state.screen !== 'puzzle') return;
+  if (e.key >= '1' && e.key <= '9') {
+    onNumPick(parseInt(e.key));
+  } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+    if (state.selectedCell) {
+      const [r, c] = state.selectedCell;
+      if (!state.given[r][c]) { state.puzzle[r][c] = 0; render(); }
+    }
+  } else if (e.key.startsWith('Arrow')) {
+    if (!state.selectedCell) state.selectedCell = [0, 0];
+    let [r, c] = state.selectedCell;
+    if (e.key === 'ArrowUp') r = (r + 8) % 9;
+    if (e.key === 'ArrowDown') r = (r + 1) % 9;
+    if (e.key === 'ArrowLeft') c = (c + 8) % 9;
+    if (e.key === 'ArrowRight') c = (c + 1) % 9;
+    state.selectedCell = [r, c];
+    render();
+  }
+});
+
+/* ================================================================
+   PLACEMENT
+   ================================================================ */
+function attemptPlace(r, c, num) {
+  if (state.given[r][c]) return;
+  if (state.puzzle[r][c] !== 0) return;
+  const correct = state.solution[r][c] === num;
+  const key = `${r},${c}`;
+  const sp = state.special[key];
+  const ghost = state._ghostArmed;
+  if (ghost) state._ghostArmed = false;
+  if (correct) placeCorrect(r, c, num, sp);
+  else placeWrong(r, c, num, sp, ghost);
+}
+
+function placeCorrect(r, c, num, sp) {
+  state.puzzle[r][c] = num;
+  state.correctStreak++;
+  if (state.firstPlaceTime === null) {
+    state.firstPlaceTime = Date.now();
+    if (state.character === 'monk' && !state.patienceMultApplied) {
+      const elapsed = (state.firstPlaceTime - state.levelStartTime) / 1000;
+      if (elapsed > 60) {
+        state.mult += 3;
+        state.patienceMultApplied = true;
+        flashHelp('PATIENCE BONUS! +3 MULT');
+        showFloat(r, c, '+3 MULT', '#ff5882');
+      }
+    }
+  }
+
+  let basePts = num;
+  const gamblerHit = state.gamblerCells.some(p => p[0]===r && p[1]===c);
+  if (gamblerHit) {
+    basePts *= 10;
+    showFloat(r, c, '×10 SECRET!', '#ffd870');
+    particleBurst(r, c, '#ffd870', 18);
+  }
+
+  let pointsGained = basePts * state.mult;
+
+  if (state.cursedRow === r) {
+    state.mult = Math.max(0.1, state.mult - 0.5);
+    showFloat(r, c, '-0.5 MULT', '#ff5882');
+  }
+
+  state.score += pointsGained;
+  showFloat(r, c, `+${fmt(pointsGained)}`, '#58baff');
+  particleBurst(r, c, '#58baff', 8);
+
+  if (state.powerups.includes('hot_streak') && state.correctStreak % 5 === 0) {
+    state.mult += 2;
+    showFloat(r, c, '+2 MULT (STREAK!)', '#ff5882');
+    bumpMult();
+  }
+
+  if (sp && !sp.used) {
+    sp.used = true;
+    handleSpecial(r, c, sp.type, true);
+  }
+  if (state.freezeRemaining > 0) state.freezeRemaining--;
+
+  checkCompletions(r, c);
+
+  if (isPuzzleComplete()) {
+    finishLevel(true);
+    return;
+  }
+
+  state.selectedNum = null;
+  // Flag the placed cell + score bump so _postRender applies them
+  // to the freshly built DOM (the OLD elements get wiped by render).
+  state._lastPlaced = [r, c];
+  state._bumpScore = true;
+  render();
+}
+
+function placeWrong(r, c, num, sp, ghost) {
+  if (state.character === 'hacker' && !state.forgivenUsed) {
+    state.forgivenUsed = true;
+    flashHelp('HACKER: first wrong forgiven');
+    flashCell(r, c);
+    return;
+  }
+  if (ghost) {
+    state.ghostUsed = true;
+    flashHelp('GHOST PLACEMENT — no penalty');
+    flashCell(r, c);
+    return;
+  }
+  if (sp && !sp.used && sp.type === 'bomb') {
+    sp.used = true;
+    state.lives--;
+    showFloat(r, c, '💥 BOMB!', '#ff5500');
+    particleBurst(r, c, '#ff5500', 30);
+    shakeBoard();
+    flashCell(r, c);
+    if (state.lives <= 0) { gameOver(); return; }
+    render();
+    return;
+  }
+  const penalty = num * state.mult;
+  state.score -= penalty;
+  showFloat(r, c, `-${fmt(penalty)}`, '#ff2d6f');
+  state.correctStreak = 0;
+  if (state.powerups.includes('pressure_cooker')) {
+    state.mult += 1;
+    showFloat(r, c, '+1 MULT', '#ff5882');
+    bumpMult();
+  }
+  if (state.score < 0) {
+    state.score = 0;
+    state.lives--;
+    if (state.lives <= 0) { gameOver(); return; }
+  }
+  flashCell(r, c);
+  shakeBoard();
+  bumpScore();
+  render();
+}
+
+function flashCell(r, c) {
+  setTimeout(() => {
+    const el = document.getElementById(`cell-${r}-${c}`);
+    if (el) {
+      el.classList.add('wrong-flash');
+      setTimeout(() => el && el.classList.remove('wrong-flash'), 500);
+    }
+  }, 10);
+}
+
+/* ================================================================
+   SPECIAL CELLS
+   ================================================================ */
+function handleSpecial(r, c, type, correct) {
+  const color = SPECIAL_COLORS[type] || '#fff';
+  particleBurst(r, c, color, 22);
+  switch (type) {
+    case 'gold':
+      if (state.powerups.includes('magnifier')) {
+        const bonus = state.puzzle[r][c] * state.mult * 5;
+        state.score += bonus;
+        showFloat(r, c, `GOLD ×5! +${fmt(bonus)}`, '#ffd870');
+      } else {
+        state.score += 500;
+        showFloat(r, c, 'GOLD +500', '#ffd870');
+      }
+      break;
+    case 'mult':
+      state.mult += 1;
+      showFloat(r, c, '+1 MULT', '#ff5882');
+      bumpMult();
+      break;
+    case 'echo':
+      rescoreRow(r);
+      showFloat(r, c, 'ECHO!', '#58baff');
+      break;
+    case 'freeze':
+      state.freezeRemaining = 3;
+      showFloat(r, c, 'FREEZE ×3', '#b6dfff');
+      break;
+    case 'curse': {
+      let delta = state.powerups.includes('dead_weight') ? 2 : -1;
+      if (state.bossModifier === 'MIRROR_CURSE') delta *= 2;
+      state.mult = Math.max(0.1, state.mult + delta);
+      showFloat(r, c, `${delta>0?'+':''}${delta} MULT`, delta > 0 ? '#ff5882' : '#a44aff');
+      bumpMult();
+      break;
+    }
+    case 'joker':
+      if (state.powerups.length < 3) {
+        const choices = POWERUP_KEYS.filter(k => !state.powerups.includes(k));
+        if (choices.length) {
+          const got = pick(choices);
+          state.powerups.push(got);
+          showFloat(r, c, `JOKER: ${POWERUPS[got].name}`, '#ff7eff');
+        }
+      } else {
+        const choices = POWERUP_KEYS.filter(k => !state.powerups.includes(k));
+        if (choices.length) {
+          state.pendingPowerupChoice = pick(choices);
+          showFloat(r, c, 'JOKER!', '#ff7eff');
+        }
+      }
+      break;
+    case 'oracle': {
+      const empties = [];
+      for (let rr = 0; rr < 9; rr++)
+        for (let cc = 0; cc < 9; cc++)
+          if (state.puzzle[rr][cc] === 0) empties.push([rr,cc]);
+      const reveal = shuffle(empties).slice(0, 3);
+      for (const [rr, cc] of reveal) {
+        state.puzzle[rr][cc] = state.solution[rr][cc];
+        state.given[rr][cc] = true;
+      }
+      showFloat(r, c, 'ORACLE ×3', '#ffffff');
+      break;
+    }
+    case 'bomb': {
+      const lvlScore = state.score - state.levelScoreAtStart;
+      const burst = lvlScore * 2;
+      state.score += burst;
+      showFloat(r, c, `BOMB BURST +${fmt(burst)}`, '#ff5500');
+      shakeBoard();
+      break;
+    }
+  }
+}
+function rescoreRow(r) {
+  let total = 0;
+  for (let c = 0; c < 9; c++) if (state.puzzle[r][c] !== 0) total += state.puzzle[r][c];
+  const gained = total * state.mult;
+  state.score += gained;
+  showFloat(r, 4, `+${fmt(gained)} ROW`, '#58baff');
+}
+
+/* ================================================================
+   COMPLETIONS
+   ================================================================ */
+function rowComplete(r) {
+  const seen = new Set();
+  for (let c = 0; c < 9; c++) {
+    const v = state.puzzle[r][c];
+    if (v === 0 || seen.has(v)) return false;
+    seen.add(v);
+  }
+  return true;
+}
+function colComplete(c) {
+  const seen = new Set();
+  for (let r = 0; r < 9; r++) {
+    const v = state.puzzle[r][c];
+    if (v === 0 || seen.has(v)) return false;
+    seen.add(v);
+  }
+  return true;
+}
+function boxComplete(r, c) {
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  const seen = new Set();
+  for (let rr = br; rr < br+3; rr++)
+    for (let cc = bc; cc < bc+3; cc++) {
+      const v = state.puzzle[rr][cc];
+      if (v === 0 || seen.has(v)) return false;
+      seen.add(v);
+    }
+  return true;
+}
+function sumRow(r) { let s = 0; for (let c = 0; c < 9; c++) s += state.puzzle[r][c]; return s; }
+function sumCol(c) { let s = 0; for (let r = 0; r < 9; r++) s += state.puzzle[r][c]; return s; }
+function sumBox(r, c) {
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  let s = 0;
+  for (let rr = br; rr < br+3; rr++)
+    for (let cc = bc; cc < bc+3; cc++)
+      s += state.puzzle[rr][cc];
+  return s;
+}
+function checkCompletions(r, c) {
+  if (!state._completed) state._completed = { rows: new Set(), cols: new Set(), boxes: new Set() };
+  const rowDone = rowComplete(r) && !state._completed.rows.has(r);
+  const colDone = colComplete(c) && !state._completed.cols.has(c);
+  const boxIdx = Math.floor(r/3)*3 + Math.floor(c/3);
+  const boxDone = boxComplete(r, c) && !state._completed.boxes.has(boxIdx);
+
+  if (rowDone && colDone && boxDone) {
+    const burst = (sumRow(r) + sumCol(c) + sumBox(r, c)) * state.mult * 5;
+    state.score += burst;
+    showFloat(r, c, `TRIPLE!! +${fmt(burst)}`, '#ffd870');
+    particleBurst(r, c, '#ffd870', 40);
+    shakeBoard();
+  } else {
+    if (rowDone) {
+      const burst = sumRow(r) * state.mult * 1.5;
+      state.score += burst;
+      showFloat(r, 4, `ROW +${fmt(burst)}`, '#58baff');
+      particleBurst(r, 4, '#58baff', 16);
+    }
+    if (colDone) {
+      const burst = sumCol(c) * state.mult * 1.5;
+      state.score += burst;
+      showFloat(4, c, `COL +${fmt(burst)}`, '#58baff');
+      particleBurst(4, c, '#58baff', 16);
+    }
+    if (boxDone) {
+      let burst = sumBox(r, c) * state.mult * 2;
+      if (state.character === 'mathematician') burst *= 2;
+      state.score += burst;
+      const br = Math.floor(r/3)*3 + 1, bc = Math.floor(c/3)*3 + 1;
+      showFloat(br, bc, `BOX +${fmt(burst)}`, '#ffd870');
+      particleBurst(br, bc, '#ffd870', 22);
+      if (state.powerups.includes('chain_reaction')) {
+        const cr = sumBox(r, c) * state.mult;
+        state.score += cr;
+        showFloat(br, bc, `CHAIN +${fmt(cr)}`, '#ff7eff');
+      }
+      if (state.powerups.includes('the_lens')) revealAdjacentBoxEmpty(r, c);
+    }
+  }
+  if (rowDone && colDone && state.powerups.includes('arbitrage')) {
+    const bonus = state.puzzle[r][c] * 10 * state.mult;
+    state.score += bonus;
+    showFloat(r, c, `ARB +${fmt(bonus)}`, '#ffd870');
+  }
+  if (rowDone) state._completed.rows.add(r);
+  if (colDone) state._completed.cols.add(c);
+  if (boxDone) state._completed.boxes.add(boxIdx);
+}
+function revealAdjacentBoxEmpty(r, c) {
+  const br = Math.floor(r/3), bc = Math.floor(c/3);
+  for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    const nbr = br + dr, nbc = bc + dc;
+    if (nbr < 0 || nbr > 2 || nbc < 0 || nbc > 2) continue;
+    const sr = nbr*3, sc = nbc*3;
+    for (let rr = sr; rr < sr+3; rr++)
+      for (let cc = sc; cc < sc+3; cc++)
+        if (state.puzzle[rr][cc] === 0) {
+          state.puzzle[rr][cc] = state.solution[rr][cc];
+          state.given[rr][cc] = true;
+        }
+  }
+}
+function isPuzzleComplete() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (state.puzzle[r][c] === 0) return false;
+  return true;
+}
+
+/* ================================================================
+   VISUAL EFFECTS: queue + DOM appliers
+   The placement logic calls showFloat / particleBurst / shakeBoard
+   / bumpScore / bumpMult freely. These now just push to a queue or
+   set a flag on state. The actual DOM work happens in _postRender
+   after the new screen is in place — so popups land on the new
+   boardWrap and bump classes land on the new score / mult elements.
+   ================================================================ */
+let _pendingFx = [];
+
+function showFloat(r, c, text, color) {
+  _pendingFx.push({ k: 'float', r, c, text, color });
+}
+function particleBurst(r, c, color, count = 12) {
+  _pendingFx.push({ k: 'burst', r, c, color, count });
+}
+function shakeBoard() { state._shake = true; }
+function bumpScore()  { state._bumpScore = true; }
+function bumpMult()   { state._bumpMult = true; }
+function flashCell(r, c) { state._lastWrong = [r, c]; }
+
+function flushEffects() {
+  const fx = _pendingFx; _pendingFx = [];
+  for (const e of fx) {
+    if (e.k === 'float')      _renderFloat(e.r, e.c, e.text, e.color);
+    else if (e.k === 'burst') _renderBurst(e.r, e.c, e.color, e.count);
+  }
+}
+
+function _renderFloat(r, c, text, color) {
+  const wrap = document.getElementById('boardWrap');
+  if (!wrap) return;
+  const popup = document.createElement('div');
+  popup.className = 'float-popup';
+  popup.style.color = color;
+  popup.textContent = text;
+  // padding 8 + cell 50; center of cell
+  popup.style.left = (8 + c * 50 + 25) + 'px';
+  popup.style.top  = (8 + r * 50) + 'px';
+  popup.style.animation = 'floatUp 1.4s ease-out forwards';
+  wrap.appendChild(popup);
+  setTimeout(() => popup.remove(), 1500);
+}
+
+function _renderBurst(r, c, color, count) {
+  const wrap = document.getElementById('boardWrap');
+  if (!wrap) return;
+  const cx = 8 + c * 50 + 25;
+  const cy = 8 + r * 50 + 25;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.background = color;
+    p.style.color = color;
+    p.style.left = (cx - 4) + 'px';
+    p.style.top  = (cy - 4) + 'px';
+    const size = 4 + Math.random() * 8;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 80;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const dur = 600 + Math.random() * 600;
+    p.animate([
+      { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx}px, ${dy + 40}px) scale(0.2)`, opacity: 0 }
+    ], { duration: dur, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' });
+    wrap.appendChild(p);
+    setTimeout(() => p.remove(), dur);
+  }
+}
+
+function _applyBoardShake() {
+  const wrap = document.getElementById('boardWrap');
+  if (!wrap) return;
+  wrap.classList.remove('shake');
+  void wrap.offsetWidth;
+  wrap.classList.add('shake');
+  setTimeout(() => wrap && wrap.classList.remove('shake'), 450);
+}
+
+function _applyScoreBump() {
+  const el = document.getElementById('scoreDisplay');
+  if (el) {
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+  }
+  const startVal = state.displayedScore;
+  const endVal = state.score;
+  if (startVal === endVal) return;
+  const dur = 500;
+  const t0 = performance.now();
+  (function step(now) {
+    const t = Math.min(1, ((now || performance.now()) - t0) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    state.displayedScore = startVal + (endVal - startVal) * eased;
+    const e2 = document.getElementById('scoreDisplay');
+    if (e2) e2.textContent = fmt(state.displayedScore);
+    if (t < 1) requestAnimationFrame(step);
+    else state.displayedScore = endVal;
+  })(performance.now());
+}
+
+function _applyMultBump() {
+  const el = document.getElementById('multChip');
+  if (el) {
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+    el.textContent = `×${state.mult.toFixed(1)}`;
+  }
+}
+
+/* ================================================================
+   END OF LEVEL
+   ================================================================ */
+function finishLevel(naturally) {
+  if (state.vaultBanked !== null && state.score >= state.levelTarget) {
+    state.score += state.vaultBanked;
+  }
+  state.vaultBanked = null;
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  const hit = state.score >= state.levelTarget;
+  if (!hit) state.lives = Math.max(0, state.lives - 1);
+  state._completed = null;
+  state._lastLevelHit = hit;
+  state._lastLevelDelta = state.score - state.levelScoreAtStart;
+  state.displayedScore = state.score;
+  state.screen = 'levelComplete';
+  if (state.lives <= 0) { gameOver(); return; }
+  render();
+}
+
+function renderLevelComplete() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = `LEVEL ${state.level} CLEARED`;
+  s.appendChild(h);
+  const hit = state._lastLevelHit;
+  const banner = document.createElement('div');
+  banner.className = 'boss-banner';
+  banner.style.borderColor = hit ? '#58baff' : '#ff2d6f';
+  banner.style.color = hit ? '#58baff' : '#ff2d6f';
+  banner.style.background = hit ? 'linear-gradient(90deg, rgba(88,186,255,0.2) 0%, rgba(88,186,255,0.5) 50%, rgba(88,186,255,0.2) 100%)' : '';
+  banner.textContent = hit ? 'TARGET MET' : 'TARGET MISSED — -1 LIFE';
+  s.appendChild(banner);
+  const info = document.createElement('div');
+  info.className = 'col';
+  info.innerHTML = `
+    <div class="end-score">${fmt(state.score)}</div>
+    <div class="end-stat">Gained this level: <span class="cyan">${fmt(state._lastLevelDelta)}</span></div>
+    <div class="end-stat">MULT carried: <span class="pink">×${state.mult.toFixed(1)}</span></div>
+    <div class="end-stat">Lives: ${'♥'.repeat(state.lives)}${'♡'.repeat(Math.max(0,3-state.lives))}</div>
+  `;
+  s.appendChild(info);
+  const cont = document.createElement('button');
+  cont.className = 'btn primary';
+  if (state.level >= 7) {
+    cont.textContent = 'View Results';
+    cont.onclick = () => { state.screen = 'runComplete'; render(); };
+  } else {
+    cont.textContent = 'Enter Shop →';
+    cont.onclick = () => { openShop(); };
+  }
+  s.appendChild(cont);
+  return s;
+}
+
+/* ================================================================
+   SHOP
+   ================================================================ */
+function generateShopOffers() {
+  const offers = [];
+  const types = ['powerup', 'mult', 'life'];
+  for (let i = 0; i < 3; i++) {
+    const type = pick(types);
+    if (type === 'powerup') {
+      const choices = POWERUP_KEYS.filter(k => !state.powerups.includes(k));
+      if (choices.length) offers.push({ type: 'powerup', key: pick(choices), cost: 1000 * state.level });
+      else offers.push({ type: 'mult', cost: 500 * state.level });
+    } else if (type === 'mult') offers.push({ type: 'mult', cost: 500 * state.level });
+    else offers.push({ type: 'life', cost: 5000 * state.level });
+  }
+  return offers;
+}
+function openShop() {
+  state.shopOffers = generateShopOffers();
+  state.shopRerolled = false;
+  state.screen = 'shop';
+  render();
+}
+function renderShop() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'SHOP';
+  s.appendChild(h);
+  const sub = document.createElement('div');
+  sub.className = 'small';
+  sub.textContent = 'Spend score to power up. Every point spent is a point further from the target.';
+  s.appendChild(sub);
+  const hudBar = document.createElement('div');
+  hudBar.className = 'hud';
+  hudBar.innerHTML = `
+    <div class="hud-left"><div class="label">Score</div><div class="score">${fmt(state.score)}</div></div>
+    <div class="hud-mid"><div class="mult-chip">×${state.mult.toFixed(1)}</div></div>
+    <div class="hud-right"><div class="label">Powerups</div><div class="lives">${state.powerups.length}/3</div></div>
+  `;
+  s.appendChild(hudBar);
+  const grid = document.createElement('div');
+  grid.className = 'shop-grid';
+  state.shopOffers.forEach((o) => {
+    const card = document.createElement('div');
+    card.className = 'shop-item';
+    if (o.bought) card.classList.add('sold');
+    let title = '', desc = '';
+    if (o.type === 'powerup') { title = POWERUPS[o.key].name; desc = POWERUPS[o.key].desc; }
+    else if (o.type === 'mult') { title = '+1 MULT BOOST'; desc = 'Permanently increase your MULT by 1.'; }
+    else if (o.type === 'life') { title = '+1 LIFE'; desc = 'Get an extra heart. Stack \'em up.'; }
+    card.innerHTML = `
+      <div class="iname">${title}</div>
+      <div class="idesc">${desc}</div>
+      <div class="icost">${fmt(o.cost)} SCORE</div>
+    `;
+    const buy = document.createElement('button');
+    buy.className = 'btn gold small';
+    buy.textContent = o.bought ? 'SOLD' : 'BUY';
+    buy.disabled = state.score < o.cost || o.bought;
+    buy.onclick = () => {
+      if (state.score < o.cost || o.bought) return;
+      state.score -= o.cost;
+      if (o.type === 'powerup') {
+        if (state.powerups.length < 3) state.powerups.push(o.key);
+        else state.pendingPowerupChoice = o.key;
+      } else if (o.type === 'mult') state.mult += 1;
+      else if (o.type === 'life') state.lives += 1;
+      o.bought = true;
+      render();
+    };
+    card.appendChild(buy);
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `translateY(-6px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    grid.appendChild(card);
+  });
+  s.appendChild(grid);
+  const controls = document.createElement('div');
+  controls.className = 'row';
+  const reroll = document.createElement('button');
+  reroll.className = 'btn cyan';
+  reroll.textContent = `REROLL (200)`;
+  reroll.disabled = state.shopRerolled || state.score < 200;
+  reroll.onclick = () => {
+    state.score -= 200; state.shopRerolled = true;
+    state.shopOffers = generateShopOffers();
+    render();
+  };
+  controls.appendChild(reroll);
+  const next = document.createElement('button');
+  next.className = 'btn primary';
+  next.textContent = 'Next Level →';
+  next.onclick = () => startLevel(state.level + 1);
+  controls.appendChild(next);
+  s.appendChild(controls);
+  return s;
+}
+
+/* ================================================================
+   DISCARD MODAL
+   ================================================================ */
+function renderDiscardModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <h3 style="font-family:Impact,sans-serif;color:#ffe1a4;letter-spacing:2px;margin-bottom:10px;">NEW POWERUP: ${POWERUPS[state.pendingPowerupChoice].name}</h3>
+    <p class="small" style="margin-bottom:16px;color:#d8d3c5;">${POWERUPS[state.pendingPowerupChoice].desc}</p>
+    <p style="font-family:Impact,sans-serif;letter-spacing:2px;color:#ff5882;">TRAY FULL — discard one, or skip.</p>
+  `;
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.style.marginTop = '16px';
+  state.powerups.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = 'btn small';
+    b.textContent = 'Drop ' + POWERUPS[p].name;
+    b.onclick = () => {
+      state.powerups[i] = state.pendingPowerupChoice;
+      state.pendingPowerupChoice = null;
+      render();
+    };
+    row.appendChild(b);
+  });
+  const skip = document.createElement('button');
+  skip.className = 'btn gold small';
+  skip.textContent = 'SKIP';
+  skip.onclick = () => { state.pendingPowerupChoice = null; render(); };
+  row.appendChild(skip);
+  m.appendChild(row);
+  overlay.appendChild(m);
+  return overlay;
+}
+
+/* ================================================================
+   END SCREENS
+   ================================================================ */
+function gameOver() {
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  state.finalScore = state.score;
+  state.screen = 'gameOver';
+  render();
+}
+function renderGameOver() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const t = document.createElement('h1');
+  t.className = 'game-title';
+  t.style.fontSize = '90px';
+  t.textContent = 'RUN OVER';
+  s.appendChild(t);
+  const sub = document.createElement('h2');
+  sub.className = 'game-sub';
+  sub.textContent = 'You ran out of lives.';
+  s.appendChild(sub);
+  const info = document.createElement('div');
+  info.className = 'col';
+  info.innerHTML = `
+    <div class="end-score">${fmt(state.finalScore)}</div>
+    <div class="end-stat">Reached: Level ${state.level} / 7</div>
+    <div class="end-stat">Character: ${CHARACTERS[state.character].name}</div>
+  `;
+  s.appendChild(info);
+  const restart = document.createElement('button');
+  restart.className = 'btn primary';
+  restart.textContent = 'New Run';
+  restart.onclick = () => { state = freshState(); render(); };
+  s.appendChild(restart);
+  return s;
+}
+function renderRunComplete() {
+  const s = document.createElement('div');
+  s.className = 'screen';
+  const t = document.createElement('h1');
+  t.className = 'game-title';
+  t.textContent = 'VICTORY';
+  s.appendChild(t);
+  const sub = document.createElement('h2');
+  sub.className = 'game-sub';
+  sub.textContent = 'All 7 levels cleared.';
+  s.appendChild(sub);
+  const info = document.createElement('div');
+  info.className = 'col';
+  info.innerHTML = `
+    <div class="end-score">${fmt(state.score)}</div>
+    <div class="end-stat">Lives remaining: ${'♥'.repeat(state.lives)}</div>
+    <div class="end-stat">Final MULT: <span class="pink">×${state.mult.toFixed(1)}</span></div>
+    <div class="end-stat">Character: ${CHARACTERS[state.character].name}</div>
+  `;
+  s.appendChild(info);
+  const restart = document.createElement('button');
+  restart.className = 'btn primary';
+  restart.textContent = 'New Run';
+  restart.onclick = () => { state = freshState(); render(); };
+  s.appendChild(restart);
+  return s;
+}
+
+/* ================================================================
+   BOOT
+   ================================================================ */
+render();
+</script>
+</body>
+</html>

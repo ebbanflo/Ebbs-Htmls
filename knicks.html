@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>New York Knicks — Game Night Dashboard</title>
+<title>New York Knicks — Game Night Dashboard (Keyless)</title>
 <!-- ============================================================
-     NEW YORK KNICKS — SUPERFAN DASHBOARD
+     NEW YORK KNICKS — SUPERFAN DASHBOARD (ESPN keyless build)
      Single-file, no build step. Vanilla JS only.
-     Fonts via Google Fonts CDN. Data via balldontlie + rss2json.
+     Fonts via Google Fonts CDN. Data via ESPN (keyless) + rss2json.
      ============================================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -671,7 +671,7 @@ footer p{font-family:'Barlow Condensed';font-weight:500;font-size:12.5px;letter-
 <footer>
   <div class="wrap">
     <div class="fb">NEW YORK <span class="o">FOREVER</span></div>
-    <p>Unofficial fan dashboard · Built for the faithful · Data: balldontlie + ESPN/NY Post RSS</p>
+    <p>Unofficial fan dashboard · Built for the faithful · Data: ESPN + ESPN/NY Post RSS · No key required</p>
     <p style="margin-top:4px;opacity:.6">'Cause it's basketball. And the Garden never forgets.</p>
   </div>
 </footer>
@@ -692,20 +692,22 @@ footer p{font-family:'Barlow Condensed';font-weight:500;font-size:12.5px;letter-
 
 <script>
 /* ============================================================================
-   NEW YORK KNICKS DASHBOARD — vanilla JS
+   NEW YORK KNICKS DASHBOARD — KEYLESS BUILD (ESPN unofficial JSON API)
    ----------------------------------------------------------------------------
-   NOTE ON DATA: balldontlie now requires a free API key on ALL endpoints, and
-   season_averages/standings are paid-tier only. Without a key, live sections
-   degrade to styled "data unavailable" states (by design). Drop a key in the
-   banner (stored in localStorage) and team/games/roster will populate.
+   No API key required. Uses ESPN's public site.api.espn.com endpoints, which
+   power espn.com itself. They're undocumented/unofficial, so all parsing is
+   defensive — missing fields degrade to styled "unavailable" states, never a
+   broken UI. Era content is hardcoded and identical to the balldontlie build.
    ============================================================================ */
 'use strict';
 
-const API_BASE = 'https://api.balldontlie.io/v1';
-const KNICKS_ID = 20;
-const SEASON = 2025;                  // 2025–26 season
-const REFRESH_MS = 60_000;            // 60s live refresh
-const NEWS_TTL = 1000*60*60*24;       // 1 day
+const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_CORE = 'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba';
+const TEAM = 'ny';                  // ESPN team slug for the Knicks
+const TEAM_ID = '18';               // ESPN numeric team id for NYK
+const SEASON = 2026;                // ESPN labels the 2025-26 season as 2026
+const REFRESH_MS = 60_000;
+const NEWS_TTL = 1000*60*60*24;
 const RSS_PROXY = 'https://api.rss2json.com/v1/api.json?rss_url=';
 const RSS_SOURCES = [
   {url:'https://www.espn.com/espn/rss/nba/news', src:'ESPN', cls:'espn'},
@@ -716,14 +718,13 @@ const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const el = (tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 
-/* ---- API key storage ---- */
-function getKey(){ return localStorage.getItem('bdl_key') || ''; }
-function setKey(k){ localStorage.setItem('bdl_key', k.trim()); }
+/* safe nested getter: dig(obj,'a.b.0.c') */
+function dig(o,path,dflt){
+  try{ return path.split('.').reduce((a,k)=>a[k],o) ?? dflt; }catch(_){ return dflt; }
+}
 
 /* ============================================================================
-   HARDCODED ERA DATA — historical, doesn't change.
-   Stats are well-established Knicks-era figures (team pace/ratings are
-   era-typical estimates, flagged as such in the UI).
+   HARDCODED ERA DATA — identical to the balldontlie build (history doesn't change)
    ============================================================================ */
 const ERAS = {
   ewing: {
@@ -731,7 +732,6 @@ const ERAS = {
     record:'Peak: 57–25 (1993–94)',
     quote:'“The Garden was a fortress, and Patrick was the wall.”',
     blurb:'Bruising, defense-first basketball built around a franchise center. Oakley and Mason set the tone with muscle, Starks brought the fire, and Ewing anchored everything. They didn\'t outscore you — they wore you down.',
-    // team-level (era-typical / best-season flavored)
     ppg:100, oppg:95, pace:90, net:'+4 (est.)',
     players:['Patrick Ewing','Charles Oakley','John Starks','Allan Houston','Charles Smith'],
     legends:[
@@ -785,19 +785,15 @@ const ERAS = {
   }
 };
 const ERA_ORDER = ['ewing','finals99','spree','melo'];
-
-/* current-team fallback estimates (used in side-by-side if live stats unavailable) */
 let CURRENT = { ppg:115, oppg:110, pace:98, net:'+5 (est.)', players:[] };
 
 /* ============================================================================
-   UTILITIES
+   UTILITIES (shared with balldontlie build)
    ============================================================================ */
 function showLoadbar(){const b=$('#loadbar');b.style.opacity='1';b.style.width='35%';}
 function bumpLoadbar(){const b=$('#loadbar');b.style.width='75%';}
 function hideLoadbar(){const b=$('#loadbar');b.style.width='100%';setTimeout(()=>{b.style.opacity='0';b.style.width='0';},400);}
-
 function pulse(node){ if(!node)return; node.classList.remove('refreshing'); void node.offsetWidth; node.classList.add('refreshing'); }
-
 function timeAgo(d){
   const s=Math.floor((Date.now()-d)/1000);
   if(s<60)return 'just now';
@@ -805,103 +801,129 @@ function timeAgo(d){
   const h=Math.floor(m/60); if(h<24)return h+(h===1?' hour ago':' hours ago');
   const dd=Math.floor(h/24); return dd+(dd===1?' day ago':' days ago');
 }
-function fmtDate(iso){
-  const d=new Date(iso);
-  return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-}
-function fmtTime(iso){
-  const d=new Date(iso);
-  if(d.getHours()===0&&d.getMinutes()===0)return 'TBD';
-  return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-}
-function loadMsg(){
-  const m=['Running the pick and roll…','Setting the screen…','Working it inside-out…','Calling the play…','Bringing it up the floor…'];
-  return m[Math.floor(Math.random()*m.length)];
-}
-function loadingState(){ return `<div class="state"><div class="loadmsg dots">${loadMsg()}</div></div>`; }
-function errState(msg){ return `<div class="state err"><div class="ico">⚠</div><div class="msg">${msg}</div></div>`; }
+function fmtDate(iso){const d=new Date(iso);return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+function fmtTime(iso){const d=new Date(iso);if(isNaN(d))return 'TBD';if(d.getHours()===0&&d.getMinutes()===0)return 'TBD';return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+function loadMsg(){const m=['Running the pick and roll…','Setting the screen…','Working it inside-out…','Calling the play…','Bringing it up the floor…'];return m[Math.floor(Math.random()*m.length)];}
+function loadingState(){return `<div class="state"><div class="loadmsg dots">${loadMsg()}</div></div>`;}
+function errState(msg){return `<div class="state err"><div class="ico">⚠</div><div class="msg">${msg}</div></div>`;}
 
-/* fetch wrapper with key + graceful errors */
-async function apiGet(path){
-  const key=getKey();
-  const headers={};
-  if(key) headers['Authorization']=key;
-  const res=await fetch(API_BASE+path,{headers});
-  if(res.status===401) throw new Error('AUTH');
-  if(res.status===429) throw new Error('RATE');
-  if(!res.ok) throw new Error('HTTP '+res.status);
+/* fetch JSON with graceful failure */
+async function getJSON(url){
+  const res=await fetch(url,{headers:{'Accept':'application/json'}});
+  if(res.status===429)throw new Error('RATE');
+  if(!res.ok)throw new Error('HTTP '+res.status);
   return res.json();
 }
-
-/* team abbreviation helper */
-function abbr(team){ return team && (team.abbreviation || team.full_name?.slice(0,3).toUpperCase()) || '???'; }
 
 /* ============================================================================
    STATE
    ============================================================================ */
-let GAMES=[];        // all season games
-let ROSTER=[];       // players
-let SEASON_AVG={};   // player_id -> averages
+let GAMES=[];          // normalized: {id,date,datetime,home,us,them,oppAbbr,oppName,status,state,period,clock,final,live}
+let ROSTER=[];         // normalized players
+let TEAMREC={w:null,l:null,rank:null,streak:null};
 let liveTimer=null, countdownTimer=null;
 
 /* ============================================================================
-   GAMES + GAME DAY + HERO
+   GAMES — ESPN schedule + scoreboard
+   ----------------------------------------------------------------------------
+   schedule endpoint gives the full season w/ competitions + results.
+   scoreboard endpoint gives precise live state for today's games.
    ============================================================================ */
 async function loadGames(){
   try{
-    // paginate season games (balldontlie caps per_page at 100)
-    let page=1, all=[], more=true;
-    while(more && page<=4){
-      const j=await apiGet(`/games?team_ids[]=${KNICKS_ID}&seasons[]=${SEASON}&per_page=100&page=${page}`);
-      all=all.concat(j.data||[]);
-      more=j.meta && j.meta.next_page; page=(j.meta&&j.meta.next_page)||0; if(!more)break;
-    }
-    GAMES=all.sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const j=await getJSON(`${ESPN}/teams/${TEAM}/schedule?season=${SEASON}`);
+    const events=j.events||[];
+    GAMES=events.map(normalizeEvent).filter(Boolean).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+    // overlay live scoreboard if a game is happening today
+    await overlayLiveScoreboard();
+    // pull record from schedule team block if present
+    const rec = dig(j,'team.recordSummary') || dig(j,'team.record.items.0.summary');
+    if(rec && /\d+-\d+/.test(rec)){ const [w,l]=rec.split('-').map(n=>parseInt(n)); TEAMREC.w=w; TEAMREC.l=l; }
     renderGameDay(); renderHero(); buildTodayStats();
   }catch(e){ renderGameDayError(e.message); renderHeroError(e.message); }
 }
 
-function gameResult(g){
-  // returns {us, them, oppAbbr, win, home} for a finished game
-  const home = g.home_team.id===KNICKS_ID;
-  const us = home? g.home_team_score : g.visitor_team_score;
-  const them = home? g.visitor_team_score : g.home_team_score;
-  const opp = home? g.visitor_team : g.home_team;
-  return {us,them,oppAbbr:abbr(opp),oppName:opp.full_name,win:us>them,home};
+function normalizeEvent(ev){
+  try{
+    const comp=dig(ev,'competitions.0'); if(!comp)return null;
+    const competitors=comp.competitors||[];
+    const me=competitors.find(c=>String(dig(c,'team.id'))===TEAM_ID || dig(c,'team.abbreviation')==='NY' || dig(c,'team.abbreviation')==='NYK');
+    const opp=competitors.find(c=>c!==me);
+    if(!me||!opp)return null;
+    const stateName=dig(comp,'status.type.state','pre'); // pre | in | post
+    const final = stateName==='post';
+    const live  = stateName==='in';
+    const usScore=parseInt(me.score?.value ?? me.score ?? 0)||0;
+    const themScore=parseInt(opp.score?.value ?? opp.score ?? 0)||0;
+    return {
+      id:ev.id,
+      date:ev.date, datetime:ev.date,
+      home: dig(me,'homeAway')==='home',
+      us:usScore, them:themScore,
+      win: final ? usScore>themScore : null,
+      oppAbbr: dig(opp,'team.abbreviation','???'),
+      oppName: dig(opp,'team.displayName', dig(opp,'team.name','Opponent')),
+      oppLogo: dig(opp,'team.logo'),
+      status: dig(comp,'status.type.shortDetail',''),
+      state: stateName, final, live,
+      period: dig(comp,'status.period',0),
+      clock: dig(comp,'status.displayClock','')
+    };
+  }catch(_){ return null; }
 }
-const isFinal = g => (g.status==='Final' || /final/i.test(g.status||'')) && g.home_team_score>0;
-const isLive  = g => g.status && !/final/i.test(g.status) && g.period>0 && !g.time?.includes('T');
-function nextGame(){
-  const now=Date.now();
-  return GAMES.find(g=>!isFinal(g) && new Date(g.date).getTime()>=now-3*3600*1000);
-}
-function liveGame(){ return GAMES.find(isLive); }
 
+/* overlay precise live data from the scoreboard endpoint */
+async function overlayLiveScoreboard(){
+  try{
+    const sb=await getJSON(`${ESPN}/scoreboard`);
+    const ev=(sb.events||[]).find(e=>{
+      const comps=dig(e,'competitions.0.competitors',[]);
+      return comps.some(c=>String(dig(c,'team.id'))===TEAM_ID);
+    });
+    if(!ev)return;
+    const norm=normalizeEvent(ev); if(!norm)return;
+    // merge into GAMES by id (or push if missing)
+    const i=GAMES.findIndex(g=>g.id===norm.id);
+    if(i>=0)GAMES[i]=norm; else { GAMES.push(norm); GAMES.sort((a,b)=>new Date(a.datetime)-new Date(b.datetime)); }
+  }catch(_){ /* scoreboard optional */ }
+}
+
+const liveGame = ()=>GAMES.find(g=>g.live);
+const nextGame = ()=>{ const now=Date.now(); return GAMES.find(g=>!g.final && new Date(g.datetime).getTime()>=now-3*3600*1000); };
+
+function currentStreak(){
+  const finals=GAMES.filter(g=>g.final);
+  if(!finals.length)return {t:'',n:0};
+  let t=null,n=0;
+  for(let i=finals.length-1;i>=0;i--){
+    const mark=finals[i].win?'W':'L';
+    if(t===null){t=mark;n=1;} else if(mark===t){n++;} else break;
+  }
+  return {t,n};
+}
+
+/* ---- GAME DAY render ---- */
 function renderGameDay(){
-  // NEXT GAME
   const live=liveGame(), next=nextGame();
   const nb=$('#nextGameBody'); pulse($('#nextGameCard'));
   if(live){
-    const r=gameResult(live);
     nb.innerHTML=`<div class="nextcard">
-      <div class="opp"><div class="logo-ph">${r.oppAbbr}</div>
+      <div class="opp"><div class="logo-ph">${live.oppAbbr}</div>
         <div class="info"><div class="nm" style="color:var(--orange)">LIVE NOW</div>
-        <div class="dt">vs ${r.oppName}</div></div></div>
+        <div class="dt">vs ${live.oppName}</div></div></div>
       <div class="scorebig" style="margin-top:6px">
-        <div class="team us"><div class="ab">NYK</div><div class="pts">${r.us}</div></div>
-        <div class="vs">${live.period?('Q'+live.period):''} ${live.time||''}</div>
-        <div class="team"><div class="ab">${r.oppAbbr}</div><div class="pts">${r.them}</div></div>
+        <div class="team us"><div class="ab">NYK</div><div class="pts">${live.us}</div></div>
+        <div class="vs">${live.status||('Q'+live.period+' '+live.clock)}</div>
+        <div class="team"><div class="ab">${live.oppAbbr}</div><div class="pts">${live.them}</div></div>
       </div></div>`;
   } else if(next){
-    const home=next.home_team.id===KNICKS_ID;
-    const opp=home?next.visitor_team:next.home_team;
     const sw=currentStreak();
     nb.innerHTML=`<div class="nextcard">
-      <div class="opp"><div class="logo-ph">${abbr(opp)}</div>
-        <div class="info"><div class="nm">${opp.full_name.replace(/^.*\s/,'')}</div>
-        <div class="dt">${fmtDate(next.date)} · ${fmtTime(next.datetime||next.date)}</div></div></div>
+      <div class="opp"><div class="logo-ph">${next.oppAbbr}</div>
+        <div class="info"><div class="nm">${next.oppName.replace(/^.*\s/,'')}</div>
+        <div class="dt">${fmtDate(next.datetime)} · ${fmtTime(next.datetime)}</div></div></div>
       <div class="tagrow">
-        <span class="minitag ${home?'home':''}">${home?'Home · MSG':'Away'}</span>
+        <span class="minitag ${next.home?'home':''}">${next.home?'Home · MSG':'Away'}</span>
         ${sw.n>1?`<span class="minitag streak-tag">${sw.t==='W'?sw.n+' Game Win Streak':'On a skid ('+sw.n+'L)'}</span>`:''}
       </div></div>`;
   } else {
@@ -910,13 +932,13 @@ function renderGameDay(){
   $('#nextTick').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 
   // RECORD + RANK + STREAK
-  const finals=GAMES.filter(isFinal);
-  let w=0,l=0; finals.forEach(g=>{gameResult(g).win?w++:l++;});
+  const finals=GAMES.filter(g=>g.final);
+  let w=TEAMREC.w, l=TEAMREC.l;
+  if(w==null){ w=0;l=0; finals.forEach(g=>{g.win?w++:l++;}); }
   const sw=currentStreak();
-  const rb=$('#recordBody');
-  rb.innerHTML=`<div class="recordrow">
+  $('#recordBody').innerHTML=`<div class="recordrow">
     <div class="cell"><div class="n o">${w}–${l}</div><div class="l">Record</div></div>
-    <div class="cell"><div class="n" id="confRankCell">—</div><div class="l">East Rank</div></div>
+    <div class="cell"><div class="n" id="confRankCell">${TEAMREC.rank?('#'+TEAMREC.rank):'—'}</div><div class="l">East Rank</div></div>
     <div class="cell"><div class="n" style="color:${sw.t==='W'?'var(--win)':'var(--loss)'}">${sw.n? sw.t+sw.n : '—'}</div><div class="l">Streak</div></div>
   </div>`;
 
@@ -924,38 +946,24 @@ function renderGameDay(){
   const last10=finals.slice(-10);
   const lb=$('#last10Body'); pulse($('#last10Card'));
   if(last10.length){
-    lb.innerHTML='<div class="streak">'+last10.map(g=>{
-      const r=gameResult(g);
-      return `<div class="pip ${r.win?'W':'L'}"><div class="r">${r.win?'W':'L'}</div><div class="sc">${r.us}-${r.them}</div></div>`;
-    }).join('')+'</div>';
+    lb.innerHTML='<div class="streak">'+last10.map(g=>
+      `<div class="pip ${g.win?'W':'L'}"><div class="r">${g.win?'W':'L'}</div><div class="sc">${g.us}-${g.them}</div></div>`
+    ).join('')+'</div>';
   } else {
     lb.innerHTML=`<div class="state"><div class="ico">📋</div><div class="msg">No games in the books yet this season.</div></div>`;
   }
   $('#last10Tick').textContent=last10.length+' GP';
 }
 
-function currentStreak(){
-  const finals=GAMES.filter(isFinal);
-  if(!finals.length)return {t:'',n:0};
-  let t=null,n=0;
-  for(let i=finals.length-1;i>=0;i--){
-    const win=gameResult(finals[i]).win, mark=win?'W':'L';
-    if(t===null){t=mark;n=1;} else if(mark===t){n++;} else break;
-  }
-  return {t,n};
-}
-
 function renderGameDayError(code){
-  const msg = code==='AUTH'
-    ? 'balldontlie needs an API key now. Add one up top and the box scores light up.'
-    : code==='RATE' ? 'Easy — we hit the rate limit. Catch your breath, it\'ll refresh.'
-    : 'Couldn\'t reach the stat sheet. Check the connection — we\'ll keep trying.';
+  const msg = code==='RATE' ? 'Easy — ESPN rate-limited us. Catch your breath, it\'ll refresh.'
+    : 'Couldn\'t reach ESPN\'s feed. Check the connection — we\'ll keep trying.';
   $('#nextGameBody').innerHTML=errState(msg);
   $('#recordBody').innerHTML=errState('Record unavailable.');
   $('#last10Body').innerHTML=errState('Game log unavailable.');
 }
 
-/* ---- HERO board: live score, or countdown to next game ---- */
+/* ---- HERO ---- */
 function renderHero(){
   const live=liveGame(), next=nextGame();
   const board=$('#heroBoard'), body=$('#heroBody'), eye=$('#heroEyebrow'), tick=$('#heroTick');
@@ -963,21 +971,18 @@ function renderHero(){
   clearInterval(countdownTimer);
 
   if(live){
-    const r=gameResult(live);
     eye.textContent='Live at the Garden'; tick.textContent='● LIVE';
     body.innerHTML=`<div class="scorebig">
-      <div class="team us"><div class="ab">NYK</div><div class="pts">${r.us}</div></div>
+      <div class="team us"><div class="ab">NYK</div><div class="pts">${live.us}</div></div>
       <div class="vs">VS</div>
-      <div class="team"><div class="ab">${r.oppAbbr}</div><div class="pts">${r.them}</div></div>
-    </div><div class="qtr">${live.period?('Quarter '+live.period):''} · ${live.time||'In Progress'}</div>`;
-    status.classList.add('live'); sLbl.textContent='Live'; sVal.innerHTML=`NYK <span class="o">${r.us}</span> – ${r.them} ${r.oppAbbr}`;
+      <div class="team"><div class="ab">${live.oppAbbr}</div><div class="pts">${live.them}</div></div>
+    </div><div class="qtr">${live.status || ('Quarter '+live.period+' · '+live.clock)}</div>`;
+    status.classList.add('live'); sLbl.textContent='Live'; sVal.innerHTML=`NYK <span class="o">${live.us}</span> – ${live.them} ${live.oppAbbr}`;
     pulse(board);
   } else if(next){
-    const home=next.home_team.id===KNICKS_ID;
-    const opp=home?next.visitor_team:next.home_team;
-    eye.textContent= home?'Next at the Garden':'Next on the Road'; tick.textContent='';
+    eye.textContent= next.home?'Next at the Garden':'Next on the Road'; tick.textContent='';
     status.classList.remove('live'); sLbl.textContent='Next Up';
-    const target=new Date(next.datetime||next.date).getTime();
+    const target=new Date(next.datetime).getTime();
     function tickCD(){
       const diff=target-Date.now();
       if(diff<=0){ body.innerHTML='<div class="qtr" style="font-size:18px;padding:30px 0">Tip-off! Refreshing…</div>'; sVal.textContent='Tonight'; clearInterval(countdownTimer); setTimeout(loadGames,5000); return; }
@@ -989,8 +994,8 @@ function renderHero(){
         <div class="cd-sep">:</div>
         <div class="cd-unit"><div class="n">${String(m).padStart(2,'0')}</div><div class="l">Min</div></div>
       </div>
-      <div class="nextline"><div class="who">${home?'vs':'@'} ${opp.full_name.replace(/^.*\s/,'')}</div>
-      <div class="meta">${fmtDate(next.date)} · ${fmtTime(next.datetime||next.date)} · ${home?'MSG':'Away'}</div></div>`;
+      <div class="nextline"><div class="who">${next.home?'vs':'@'} ${next.oppName.replace(/^.*\s/,'')}</div>
+      <div class="meta">${fmtDate(next.datetime)} · ${fmtTime(next.datetime)} · ${next.home?'MSG':'Away'}</div></div>`;
       sVal.innerHTML=`<span class="o">${d}d ${h}h</span>`;
     }
     tickCD(); countdownTimer=setInterval(tickCD,30000);
@@ -1000,15 +1005,14 @@ function renderHero(){
     status.classList.remove('live'); sLbl.textContent='Offseason'; sVal.textContent='—';
   }
 }
-function renderHeroError(code){
+function renderHeroError(){
   $('#heroEyebrow').textContent='Signal Lost';
-  const msg = code==='AUTH' ? 'Add an API key to wake the scoreboard.' : 'Couldn\'t reach the feed.';
-  $('#heroBody').innerHTML=`<div class="nextline" style="border:0"><div class="who" style="color:var(--loss)">Data Unavailable</div><div class="meta">${msg}</div></div>`;
+  $('#heroBody').innerHTML=`<div class="nextline" style="border:0"><div class="who" style="color:var(--loss)">Data Unavailable</div><div class="meta">Couldn't reach ESPN. We'll keep trying.</div></div>`;
   $('#statusLbl').textContent='Offline'; $('#statusVal').textContent='—';
 }
 
 /* ============================================================================
-   ROSTER + SEASON AVERAGES + MODAL
+   ROSTER — ESPN roster endpoint (includes stats per athlete)
    ============================================================================ */
 function skeletonRoster(){
   const g=$('#rosterGrid'); g.innerHTML='';
@@ -1021,175 +1025,243 @@ function skeletonRoster(){
 
 async function loadRoster(){
   try{
-    const j=await apiGet(`/players?team_ids[]=${KNICKS_ID}&per_page=100`);
-    ROSTER=(j.data||[]).filter(p=>p.first_name);
-    renderRoster();
-    loadSeasonAverages();  // fire after roster renders
+    // enable=stats pulls season averages inline for each athlete
+    const j=await getJSON(`${ESPN}/teams/${TEAM}/roster?enable=stats`);
+    const athletes=[];
+    (j.athletes||[]).forEach(group=>{
+      // roster may be flat (items) or grouped by position
+      const list = group.items || (Array.isArray(group)?group:[group]);
+      list.forEach(a=>{ if(a && a.id) athletes.push(normalizePlayer(a)); });
+    });
+    // some payloads put athletes flat
+    if(!athletes.length && Array.isArray(j.athletes)){
+      j.athletes.forEach(a=>{ if(a&&a.id) athletes.push(normalizePlayer(a)); });
+    }
+    ROSTER=athletes.filter(p=>p.first);
+    if(!ROSTER.length)throw new Error('EMPTY');
+    renderRoster(); buildTodayStats();
   }catch(e){ renderRosterError(e.message); }
 }
 
-async function loadSeasonAverages(){
-  if(!ROSTER.length)return;
-  try{
-    // batch all player ids into one request (respect rate limits)
-    const ids=ROSTER.map(p=>p.id);
-    const qs=ids.map(id=>`player_ids[]=${id}`).join('&');
-    const j=await apiGet(`/season_averages?season=${SEASON}&${qs}`);
-    (j.data||[]).forEach(a=>{ SEASON_AVG[a.player_id]=a; });
-    renderRoster();           // re-render with stats
-    buildTodayStats();        // current team ppg etc. for era compare
-  }catch(e){
-    // season_averages is paid-tier; fail quietly, cards still show w/o stats
-    console.warn('season averages unavailable:', e.message);
-    renderRoster(true);
+/* pull PPG/RPG/APG from ESPN's nested stat splits */
+function extractAvg(a){
+  // ESPN structures: a.stats (array of {name,value}) OR a.statistics.splits.categories...
+  const out={pts:null,reb:null,ast:null,min:null,raw:{}};
+  // Strategy 1: flat displayStats / stats array of {name, displayValue}
+  let flat=[];
+  if(Array.isArray(a.stats)) flat=a.stats;
+  if(Array.isArray(dig(a,'statistics.splits.categories'))){
+    dig(a,'statistics.splits.categories',[]).forEach(cat=>{
+      (cat.stats||[]).forEach(s=>flat.push(s));
+    });
   }
+  flat.forEach(s=>{
+    const key=(s.name||s.abbreviation||'').toLowerCase();
+    const val=parseFloat(s.value ?? s.displayValue);
+    if(isNaN(val))return;
+    out.raw[key]=val;
+    if(key==='avgpoints'||key==='ppg'||key==='points')out.pts??=val;
+    if(key==='avgrebounds'||key==='rpg'||key==='rebounds'||key==='avgtotalrebounds')out.reb??=val;
+    if(key==='avgassists'||key==='apg'||key==='assists')out.ast??=val;
+    if(key==='avgminutes'||key==='minutes'||key==='mpg')out.min??=val;
+  });
+  return out;
+}
+
+function normalizePlayer(a){
+  const avg=extractAvg(a);
+  const name=a.displayName || `${a.firstName||''} ${a.lastName||''}`.trim();
+  const parts=name.split(' ');
+  return {
+    id:a.id,
+    first:a.firstName || parts.slice(0,-1).join(' ') || parts[0] || '',
+    last:a.lastName || parts.slice(-1)[0] || '',
+    pos: dig(a,'position.abbreviation', a.position?.name || '—'),
+    jersey: a.jersey || '—',
+    height: a.displayHeight || '',
+    weight: a.displayWeight || (a.weight?a.weight+' lbs':''),
+    headshot: dig(a,'headshot.href',''),
+    avg,
+    raw:a
+  };
 }
 
 function topPerformers(){
-  // rank by PPG to flag stars (top 3 with data)
-  const withAvg=ROSTER.filter(p=>SEASON_AVG[p.id]).sort((a,b)=>(SEASON_AVG[b.id].pts||0)-(SEASON_AVG[a.id].pts||0));
+  const withAvg=ROSTER.filter(p=>p.avg.pts!=null).sort((a,b)=>(b.avg.pts||0)-(a.avg.pts||0));
   return new Set(withAvg.slice(0,3).map(p=>p.id));
 }
 
-function renderRoster(noStats){
+function renderRoster(){
   if(!ROSTER.length){ renderRosterError('EMPTY'); return; }
   const g=$('#rosterGrid'); g.innerHTML='';
   const stars=topPerformers();
-  ROSTER.sort((a,b)=>(parseInt(a.jersey_number)||99)-(parseInt(b.jersey_number)||99));
+  ROSTER.sort((a,b)=>(parseInt(a.jersey)||99)-(parseInt(b.jersey)||99));
   ROSTER.forEach(p=>{
-    const a=SEASON_AVG[p.id];
-    const isStar=stars.has(p.id);
-    const jn=p.jersey_number||'—';
+    const a=p.avg, isStar=stars.has(p.id);
     const card=el('div','pcard'+(isStar?' star':''));
     card.innerHTML=`
       <span class="star-badge">★</span>
-      <div class="top">
-        <div class="jersey">${jn}</div>
-        <div class="pos-chip">${p.position||'—'}</div>
-      </div>
-      <div class="nm"><div class="first">${p.first_name}</div><div class="last">${p.last_name}</div></div>
+      <div class="top"><div class="jersey">${p.jersey}</div><div class="pos-chip">${p.pos}</div></div>
+      <div class="nm"><div class="first">${p.first}</div><div class="last">${p.last}</div></div>
       <div class="stats">
-        <div class="s"><div class="v">${a?(a.pts??'—'):'—'}</div><div class="k">PPG</div></div>
-        <div class="s"><div class="v">${a?(a.reb??'—'):'—'}</div><div class="k">RPG</div></div>
-        <div class="s"><div class="v">${a?(a.ast??'—'):'—'}</div><div class="k">APG</div></div>
+        <div class="s"><div class="v">${a.pts??'—'}</div><div class="k">PPG</div></div>
+        <div class="s"><div class="v">${a.reb??'—'}</div><div class="k">RPG</div></div>
+        <div class="s"><div class="v">${a.ast??'—'}</div><div class="k">APG</div></div>
       </div>`;
     card.addEventListener('click',()=>openPlayer(p));
     g.appendChild(card);
   });
 }
-
 function renderRosterError(code){
-  const msg = code==='AUTH'
-    ? 'The roster lives behind balldontlie\'s key now. Add one above to fill the locker room.'
-    : code==='EMPTY' ? 'Roster came back empty. The front office is being coy.'
-    : 'Couldn\'t load the roster. We\'ll run it back shortly.';
+  const msg = code==='EMPTY' ? 'Roster came back empty. ESPN\'s being coy — try a refresh.'
+    : 'Couldn\'t load the roster from ESPN. We\'ll run it back shortly.';
   $('#rosterBody').innerHTML=errState(msg);
 }
 
 function openPlayer(p){
-  const a=SEASON_AVG[p.id];
-  $('#mJersey').textContent=p.jersey_number||'';
-  $('#mName').textContent=`${p.first_name} ${p.last_name}`;
-  $('#mPos').textContent=`${p.position||'—'} · #${p.jersey_number||'—'} · ${p.height||''} ${p.weight?('· '+p.weight+' lbs'):''}`;
+  const a=p.avg, r=a.raw||{};
+  $('#mJersey').textContent=p.jersey||'';
+  $('#mName').textContent=`${p.first} ${p.last}`;
+  $('#mPos').textContent=`${p.pos||'—'} · #${p.jersey||'—'} ${p.height?('· '+p.height):''} ${p.weight?('· '+p.weight):''}`;
   const b=$('#mBody');
-  if(a){
-    const per36=v=> (a.min&&parseFloat(a.min)>0)? (v*36/parseFloat(a.min)).toFixed(1) : '—';
+  // build a stat grid from whatever ESPN gave us
+  const pick=(keys)=>{ for(const k of keys){ if(r[k]!=null) return r[k]; } return '—'; };
+  const fgp=pick(['fieldgoalpct','fgpct']), tp=pick(['threepointpct','3ptpct','threepointfieldgoalpct']), ftp=pick(['freethrowpct','ftpct']);
+  if(a.pts!=null || Object.keys(r).length){
+    const per36=v=> (a.min&&a.min>0 && typeof v==='number')? (v*36/a.min).toFixed(1):'—';
     b.innerHTML=`
-      <div class="statsub">Per Game · ${SEASON}–${(SEASON+1)%100}</div>
+      <div class="statsub">Per Game · 2025–26</div>
       <div class="statgrid">
         <div class="b"><div class="v o">${a.pts??'—'}</div><div class="k">PTS</div></div>
         <div class="b"><div class="v">${a.reb??'—'}</div><div class="k">REB</div></div>
         <div class="b"><div class="v">${a.ast??'—'}</div><div class="k">AST</div></div>
         <div class="b"><div class="v">${a.min??'—'}</div><div class="k">MIN</div></div>
-        <div class="b"><div class="v">${a.stl??'—'}</div><div class="k">STL</div></div>
-        <div class="b"><div class="v">${a.blk??'—'}</div><div class="k">BLK</div></div>
-        <div class="b"><div class="v">${a.turnover??'—'}</div><div class="k">TOV</div></div>
-        <div class="b"><div class="v">${a.games_played??'—'}</div><div class="k">GP</div></div>
+        <div class="b"><div class="v">${pick(['avgsteals','steals'])}</div><div class="k">STL</div></div>
+        <div class="b"><div class="v">${pick(['avgblocks','blocks'])}</div><div class="k">BLK</div></div>
+        <div class="b"><div class="v">${pick(['avgturnovers','turnovers'])}</div><div class="k">TOV</div></div>
+        <div class="b"><div class="v">${pick(['gamesplayed','games'])}</div><div class="k">GP</div></div>
       </div>
       <div class="statsub">Shooting Splits</div>
       <div class="statgrid">
-        <div class="b"><div class="v">${a.fg_pct!=null?(a.fg_pct*100).toFixed(1)+'%':'—'}</div><div class="k">FG%</div></div>
-        <div class="b"><div class="v">${a.fg3_pct!=null?(a.fg3_pct*100).toFixed(1)+'%':'—'}</div><div class="k">3P%</div></div>
-        <div class="b"><div class="v">${a.ft_pct!=null?(a.ft_pct*100).toFixed(1)+'%':'—'}</div><div class="k">FT%</div></div>
-        <div class="b"><div class="v">${a.fga??'—'}</div><div class="k">FGA</div></div>
+        <div class="b"><div class="v">${fgp!=='—'?(+fgp).toFixed(1)+'%':'—'}</div><div class="k">FG%</div></div>
+        <div class="b"><div class="v">${tp!=='—'?(+tp).toFixed(1)+'%':'—'}</div><div class="k">3P%</div></div>
+        <div class="b"><div class="v">${ftp!=='—'?(+ftp).toFixed(1)+'%':'—'}</div><div class="k">FT%</div></div>
+        <div class="b"><div class="v">${pick(['avgfieldgoalsattempted','fieldgoalsattempted'])}</div><div class="k">FGA</div></div>
       </div>
       <div class="statsub">Per 36 Minutes</div>
       <div class="statgrid">
         <div class="b"><div class="v">${per36(a.pts)}</div><div class="k">PTS</div></div>
         <div class="b"><div class="v">${per36(a.reb)}</div><div class="k">REB</div></div>
         <div class="b"><div class="v">${per36(a.ast)}</div><div class="k">AST</div></div>
-        <div class="b"><div class="v">${per36(a.blk)}</div><div class="k">BLK</div></div>
+        <div class="b"><div class="v">${p.height||'—'}</div><div class="k">HT</div></div>
       </div>`;
   } else {
-    b.innerHTML=`<div class="state"><div class="ico">📊</div><div class="msg">No season averages on file for this player yet — could be a deep bench guy, or stats are behind the paid tier.</div></div>`;
+    b.innerHTML=`<div class="state"><div class="ico">📊</div><div class="msg">No season averages on file yet — likely a deep-bench guy or hasn't logged minutes.</div></div>`;
   }
-  const bg=$('#modalBg'); bg.classList.add('open');
+  $('#modalBg').classList.add('open');
 }
 
 /* ============================================================================
-   STANDINGS
+   STANDINGS — ESPN standings endpoint (Eastern Conference)
    ============================================================================ */
 async function loadStandings(){
   try{
-    const j=await apiGet(`/standings?season=${SEASON}`);
-    const east=(j.data||[]).filter(s=>{
-      const c=(s.conference||s.team?.conference||'').toLowerCase();
-      return c.includes('east');
-    }).sort((a,b)=>(a.conference_rank||99)-(b.conference_rank||99));
-    if(!east.length) throw new Error('EMPTY');
+    // group=2 is conference grouping; this endpoint returns nested standings entries
+    let j;
+    try{ j=await getJSON(`${ESPN}/standings?season=${SEASON}`); }
+    catch(_){ j=await getJSON(`https://site.web.api.espn.com/apis/v2/sports/basketball/nba/standings?season=${SEASON}&level=2`); }
+    const east=extractEast(j);
+    if(!east.length)throw new Error('EMPTY');
+    east.sort((a,b)=>a.rank-b.rank);
     renderStandings(east);
-    // also set conf rank on game day card
-    const k=east.find(s=>s.team.id===KNICKS_ID);
-    if(k){ const c=$('#confRankCell'); if(c)c.textContent='#'+(k.conference_rank); }
+    const k=east.find(s=>s.isKnicks);
+    if(k){ TEAMREC.rank=k.rank; const c=$('#confRankCell'); if(c)c.textContent='#'+k.rank; }
   }catch(e){ renderStandingsError(e.message); }
+}
+
+function extractEast(j){
+  // ESPN nests differently across hosts; probe common shapes.
+  const rows=[];
+  const pushEntry=(entry,rankHint)=>{
+    const t=entry.team||{};
+    const stats=entry.stats||[];
+    const sv=(names)=>{ const s=stats.find(x=>names.includes((x.name||x.type||'').toLowerCase())); return s? (s.value ?? s.displayValue) : null; };
+    const wins=parseInt(sv(['wins']))||0, losses=parseInt(sv(['losses']))||0;
+    const id=String(t.id);
+    rows.push({
+      rank: parseInt(sv(['playoffseed','rank']) ?? rankHint ?? 0)||rankHint||0,
+      id, abbr:t.abbreviation||(t.shortDisplayName||'').slice(0,3).toUpperCase(),
+      name:t.name||t.shortDisplayName||t.displayName||'',
+      wins, losses,
+      pct: sv(['winpercent','pct']),
+      gb: sv(['gamesbehind','gamesback']),
+      home: sv(['home']), away: sv(['road','away']),
+      l10: sv(['lasttengames','l10','streak']),
+      isKnicks: id===TEAM_ID || t.abbreviation==='NY' || t.abbreviation==='NYK'
+    });
+  };
+  // shape A: children[] (conferences) -> standings.entries[]
+  const children = j.children || dig(j,'standings.groups') || [];
+  let foundEast=false;
+  children.forEach(ch=>{
+    const nm=(ch.name||ch.abbreviation||'').toLowerCase();
+    if(nm.includes('east')){
+      foundEast=true;
+      const entries = dig(ch,'standings.entries') || ch.entries || [];
+      entries.forEach((e,i)=>pushEntry(e,i+1));
+    }
+  });
+  // shape B: flat standings.entries with team.conference info
+  if(!foundEast){
+    const entries = dig(j,'standings.entries') || j.entries || [];
+    entries.forEach((e,i)=>{
+      const conf=(dig(e,'team.conferenceId')||dig(e,'team.groups.conference.name')||'').toString().toLowerCase();
+      // NBA East conferenceId is commonly "5"; include if east-ish or unknown
+      if(conf===''||conf.includes('east')||conf==='5'||conf==='1') pushEntry(e,i+1);
+    });
+  }
+  return rows;
 }
 
 function renderStandings(rows){
   const html=`<table class="standtable">
     <thead><tr><th class="rk">#</th><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>HOME</th><th>AWAY</th><th>L10</th></tr></thead>
     <tbody>${rows.map(s=>{
-      const t=s.team, knx=t.id===KNICKS_ID;
-      const pct=(s.wins+s.losses)? (s.wins/(s.wins+s.losses)).toFixed(3).replace(/^0/,'') : '—';
-      return `<tr class="${knx?'knicks':''}">
-        <td class="rk"><span class="rk-badge">${s.conference_rank||'—'}</span></td>
-        <td><div class="team-cell"><div class="lg">${abbr(t)}</div><div class="nm">${t.name||t.full_name}</div></div></td>
-        <td class="num-c">${s.wins}</td>
-        <td class="num-c">${s.losses}</td>
-        <td>${pct}</td>
-        <td>${s.games_back??(s.conference_rank===1?'—':'')}</td>
-        <td>${s.home_record||'—'}</td>
-        <td>${s.road_record||s.away_record||'—'}</td>
-        <td>${s.last_ten_record||s.l10||'—'}</td>
+      const pct=s.pct!=null?String(s.pct).replace(/^0/,''):((s.wins+s.losses)?(s.wins/(s.wins+s.losses)).toFixed(3).replace(/^0/,''):'—');
+      return `<tr class="${s.isKnicks?'knicks':''}">
+        <td class="rk"><span class="rk-badge">${s.rank||'—'}</span></td>
+        <td><div class="team-cell"><div class="lg">${s.abbr}</div><div class="nm">${s.name}</div></div></td>
+        <td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
+        <td>${pct}</td><td>${s.gb??'—'}</td>
+        <td>${s.home||'—'}</td><td>${s.away||'—'}</td><td>${s.l10||'—'}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
   $('#standingsBody').innerHTML=html;
   pulse($('#standingsCard'));
 }
 function renderStandingsError(code){
-  const msg = code==='AUTH'||code==='EMPTY'
-    ? 'Standings are a paid-tier endpoint on balldontlie — with a key on that plan, the East table fills in here. Until then, check the eras below.'
-    : 'Couldn\'t pull the conference table right now.';
+  const msg = code==='EMPTY'
+    ? 'ESPN returned the table in a shape we couldn\'t read this time — it varies. Try a refresh, or check the eras below.'
+    : 'Couldn\'t pull the conference table from ESPN right now.';
   $('#standingsBody').innerHTML=errState(msg);
 }
 
 /* ============================================================================
-   ERA COMPARISON
+   ERA COMPARISON — identical logic to the balldontlie build
    ============================================================================ */
 let activeEra = localStorage.getItem('knicks_era') || 'ewing';
 let eraView   = localStorage.getItem('knicks_eraview') || 'sbs';
 
 function buildTodayStats(){
-  // estimate current team PPG/OPPG from finished games if we have them
-  const finals=GAMES.filter(isFinal);
+  const finals=GAMES.filter(g=>g.final);
   if(finals.length){
-    let pf=0,pa=0; finals.forEach(g=>{const r=gameResult(g);pf+=r.us;pa+=r.them;});
+    let pf=0,pa=0; finals.forEach(g=>{pf+=g.us;pa+=g.them;});
     CURRENT.ppg=Math.round(pf/finals.length);
     CURRENT.oppg=Math.round(pa/finals.length);
     CURRENT.net=((pf-pa)/finals.length>=0?'+':'')+((pf-pa)/finals.length).toFixed(1);
   }
-  // core players = top performers (or fallback names)
-  const stars=[...topPerformers()].map(id=>{const p=ROSTER.find(x=>x.id===id);return p?p.last_name:null;}).filter(Boolean);
-  CURRENT.players = stars.length? stars : (ROSTER.slice(0,5).map(p=>p.last_name));
+  const stars=[...topPerformers()].map(id=>{const p=ROSTER.find(x=>x.id===id);return p?p.last:null;}).filter(Boolean);
+  CURRENT.players = stars.length? stars : ROSTER.slice(0,5).map(p=>p.last);
   if(eraView==='sbs') renderSideBySide();
 }
 
@@ -1197,18 +1269,15 @@ function renderEraPicker(){
   const p=$('#eraPicker'); p.innerHTML='';
   ERA_ORDER.forEach(k=>{
     const e=ERAS[k];
-    const chip=el('button','era-chip'+(k===activeEra?' active':''),
-      `${e.name}<span class="yr">${e.years}</span>`);
+    const chip=el('button','era-chip'+(k===activeEra?' active':''),`${e.name}<span class="yr">${e.years}</span>`);
     chip.addEventListener('click',()=>{ activeEra=k; localStorage.setItem('knicks_era',k);
-      $$('.era-chip',p).forEach(c=>c.classList.remove('active')); chip.classList.add('active');
-      renderSideBySide(); });
+      $$('.era-chip',p).forEach(c=>c.classList.remove('active')); chip.classList.add('active'); renderSideBySide(); });
     p.appendChild(chip);
   });
 }
 
 function statbarRow(label,val,max,fixedPct){
-  // fixedPct: optional explicit bar width (used for non-numeric vals like Net Rtg)
-  const pct = fixedPct!=null ? fixedPct : Math.min(100,Math.round((val/max)*100));
+  const pct=fixedPct!=null?fixedPct:Math.min(100,Math.round((val/max)*100));
   return `<div class="statbar"><div class="lbl"><span>${label}</span><span class="v">${val}</span></div>
     <div class="track"><div class="fill" data-w="${pct}"></div></div></div>`;
 }
@@ -1217,25 +1286,15 @@ function renderSideBySide(){
   const e=ERAS[activeEra];
   $('#vsEraName').textContent=e.name;
   $('#vsEraYears').textContent=e.years+' · '+e.record;
-  // shared maxes so bars are comparable
   const maxPPG=Math.max(CURRENT.ppg,e.ppg,120), maxPace=Math.max(CURRENT.pace,e.pace,100);
-
   $('#vsTodayStats').innerHTML=
-    statbarRow('PPG',CURRENT.ppg,maxPPG)+
-    statbarRow('Opp PPG',CURRENT.oppg,maxPPG)+
-    statbarRow('Pace (est.)',CURRENT.pace,maxPace)+
-    statbarRow('Net Rtg',CURRENT.net,1,70);
-
+    statbarRow('PPG',CURRENT.ppg,maxPPG)+statbarRow('Opp PPG',CURRENT.oppg,maxPPG)+
+    statbarRow('Pace (est.)',CURRENT.pace,maxPace)+statbarRow('Net Rtg',CURRENT.net,1,70);
   $('#vsEraStats').innerHTML=
-    statbarRow('PPG',e.ppg,maxPPG)+
-    statbarRow('Opp PPG',e.oppg,maxPPG)+
-    statbarRow('Pace (est.)',e.pace,maxPace)+
-    statbarRow('Net Rtg',e.net,1,60);
-
+    statbarRow('PPG',e.ppg,maxPPG)+statbarRow('Opp PPG',e.oppg,maxPPG)+
+    statbarRow('Pace (est.)',e.pace,maxPace)+statbarRow('Net Rtg',e.net,1,60);
   $('#vsTodayPlayers').innerHTML=(CURRENT.players.length?CURRENT.players:['—']).map(n=>`<span class="pchip">${n}</span>`).join('');
   $('#vsEraPlayers').innerHTML=e.players.map(n=>`<span class="pchip">${n}</span>`).join('');
-
-  // animate bars
   requestAnimationFrame(()=>{ setTimeout(()=>{ $$('#sbsView .fill').forEach(f=>f.style.width=f.dataset.w+'%'); },60); });
 }
 
@@ -1245,26 +1304,20 @@ function renderDeepDive(){
     const e=ERAS[k];
     const ch=el('div','chapter'); ch.dataset.num=e.num;
     ch.innerHTML=`
-      <div class="ch-era">${e.name}</div>
-      <div class="ch-yr">${e.years}</div>
-      <div class="ch-rec">${e.record}</div>
-      <div class="quote">${e.quote}</div>
+      <div class="ch-era">${e.name}</div><div class="ch-yr">${e.years}</div>
+      <div class="ch-rec">${e.record}</div><div class="quote">${e.quote}</div>
       <div class="blurb">${e.blurb}</div>
       <div class="ch-sub">Top 3 — Per Game (as Knicks)</div>
       <div class="legends">${e.legends.map(l=>`
         <div class="legend-row"><div class="ln">${l.n}</div>
-          <div class="ls">
-            <div class="x"><div class="v">${l.ppg}</div><div class="k">PPG</div></div>
-            <div class="x"><div class="v">${l.rpg}</div><div class="k">RPG</div></div>
-            <div class="x"><div class="v">${l.apg}</div><div class="k">APG</div></div>
-          </div></div>`).join('')}</div>
+          <div class="ls"><div class="x"><div class="v">${l.ppg}</div><div class="k">PPG</div></div>
+          <div class="x"><div class="v">${l.rpg}</div><div class="k">RPG</div></div>
+          <div class="x"><div class="v">${l.apg}</div><div class="k">APG</div></div></div></div>`).join('')}</div>
       <div class="career-note"><div class="t">${e.career.t}</div><div class="v">${e.career.v}</div></div>
       <button class="btn primary" data-era="${k}" style="width:100%;justify-content:center">Compare To Today →</button>`;
     ch.querySelector('button').addEventListener('click',()=>{
-      activeEra=k; localStorage.setItem('knicks_era',k);
-      setEraView('sbs');
-      renderEraPicker(); renderSideBySide();
-      $('#eras').scrollIntoView({behavior:'smooth'});
+      activeEra=k; localStorage.setItem('knicks_era',k); setEraView('sbs');
+      renderEraPicker(); renderSideBySide(); $('#eras').scrollIntoView({behavior:'smooth'});
     });
     c.appendChild(ch);
   });
@@ -1277,24 +1330,19 @@ function setEraView(v){
   $('#deepView').classList.toggle('hidden',v!=='deep');
   if(v==='sbs') renderSideBySide();
 }
-
 function initEras(){
-  renderEraPicker();
-  renderDeepDive();
+  renderEraPicker(); renderDeepDive();
   $$('#eraSwitch button').forEach(b=>b.addEventListener('click',()=>setEraView(b.dataset.view)));
   setEraView(eraView);
 }
 
 /* ============================================================================
-   NEWS FEED (RSS via rss2json, cached daily in localStorage)
+   NEWS — identical (RSS via rss2json, daily localStorage cache)
    ============================================================================ */
 async function loadNews(force){
   const cacheRaw=localStorage.getItem('knicks_news');
   if(cacheRaw && !force){
-    try{
-      const c=JSON.parse(cacheRaw);
-      if(Date.now()-c.ts < NEWS_TTL && c.items?.length){ renderNews(c.items,c.ts); return; }
-    }catch(_){}
+    try{ const c=JSON.parse(cacheRaw); if(Date.now()-c.ts<NEWS_TTL && c.items?.length){ renderNews(c.items,c.ts); return; } }catch(_){}
   }
   try{
     const all=[];
@@ -1302,29 +1350,24 @@ async function loadNews(force){
       try{
         const res=await fetch(RSS_PROXY+encodeURIComponent(s.url));
         const j=await res.json();
-        if(j.status==='ok' && j.items){
+        if(j.status==='ok'&&j.items){
           j.items.forEach(it=>{
             const hay=(it.title+' '+(it.description||'')+' '+(it.categories||[]).join(' ')).toLowerCase();
-            const isKnicks = s.cls==='post' || hay.includes('knicks') || hay.includes('new york knicks');
-            if(isKnicks){
-              all.push({title:it.title, link:it.link, src:s.src, cls:s.cls,
-                date:new Date(it.pubDate).getTime()});
-            }
+            if(s.cls==='post'||hay.includes('knicks')||hay.includes('new york knicks'))
+              all.push({title:it.title,link:it.link,src:s.src,cls:s.cls,date:new Date(it.pubDate).getTime()});
           });
         }
       }catch(inner){ console.warn('feed failed',s.src,inner.message); }
     }
     all.sort((a,b)=>b.date-a.date);
     const items=all.slice(0,18);
-    if(!items.length) throw new Error('EMPTY');
+    if(!items.length)throw new Error('EMPTY');
     localStorage.setItem('knicks_news',JSON.stringify({ts:Date.now(),items}));
     renderNews(items,Date.now());
   }catch(e){ renderNewsError(); }
 }
-
 function renderNews(items,ts){
-  const wrap=$('#newsScroll');
-  wrap.innerHTML=items.map(it=>`
+  $('#newsScroll').innerHTML=items.map(it=>`
     <a class="news-card" href="${it.link}" target="_blank" rel="noopener">
       <span class="src ${it.cls}">${it.src}</span>
       <div class="hl">${it.title}</div>
@@ -1337,67 +1380,31 @@ function renderNewsError(){
 }
 
 /* ============================================================================
-   API KEY BANNER
-   ============================================================================ */
-function injectKeyBanner(){
-  if(getKey())return;  // only show when no key
-  const sec=$('#gameday');
-  const banner=el('div','keyhint reveal in');
-  banner.innerHTML=`
-    <div class="kt"><b>Live data needs a key</b><p>balldontlie now requires a free API key. Paste one to light up scores, roster & live stats. Stored only in your browser.</p></div>
-    <input type="text" id="keyInput" placeholder="Paste balldontlie API key…">
-    <button class="btn primary" id="keySave">Activate</button>`;
-  sec.parentNode.insertBefore(banner,sec);
-  $('#keySave').addEventListener('click',()=>{
-    const v=$('#keyInput').value.trim();
-    if(v){ setKey(v); banner.remove(); bootData(); }
-  });
-  $('#keyInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#keySave').click();});
-}
-
-/* ============================================================================
-   REVEAL ON SCROLL/LOAD (staggered)
+   REVEALS + BOOT
    ============================================================================ */
 function initReveals(){
   const io=new IntersectionObserver((entries)=>{
-    entries.forEach((en,i)=>{
-      if(en.isIntersecting){ setTimeout(()=>en.target.classList.add('in'),i*70); io.unobserve(en.target); }
-    });
+    entries.forEach((en,i)=>{ if(en.isIntersecting){ setTimeout(()=>en.target.classList.add('in'),i*70); io.unobserve(en.target); } });
   },{threshold:.12});
   $$('.reveal').forEach(r=>io.observe(r));
 }
-
-/* ============================================================================
-   BOOT
-   ============================================================================ */
 function bootData(){
-  showLoadbar();
-  skeletonRoster();
+  showLoadbar(); skeletonRoster();
   Promise.allSettled([loadGames(),loadRoster(),loadStandings()]).then(()=>{ bumpLoadbar(); hideLoadbar(); });
   loadNews();
 }
-
 function startLiveRefresh(){
   clearInterval(liveTimer);
-  liveTimer=setInterval(()=>{
-    if(getKey()){ loadGames(); loadStandings(); }  // refresh live data every 60s
-  },REFRESH_MS);
+  liveTimer=setInterval(()=>{ loadGames(); loadStandings(); },REFRESH_MS); // keyless — always refresh
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // mobile nav
   $('#menuBtn').addEventListener('click',()=>$('#nav').classList.toggle('mobile-open'));
   $$('#nav a').forEach(a=>a.addEventListener('click',()=>$('#nav').classList.remove('mobile-open')));
-  // modal close
   $('#modalClose').addEventListener('click',()=>$('#modalBg').classList.remove('open'));
   $('#modalBg').addEventListener('click',e=>{if(e.target===$('#modalBg'))$('#modalBg').classList.remove('open');});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#modalBg').classList.remove('open');});
-
-  initEras();
-  initReveals();
-  injectKeyBanner();
-  bootData();
-  startLiveRefresh();
+  initEras(); initReveals(); bootData(); startLiveRefresh();
 });
 </script>
 </body>

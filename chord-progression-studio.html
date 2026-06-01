@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voicing — Chord Progression Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+/* ====== Windows 95 theme ====== */
+:root{
+  --teal:#008080;
+  --gray:#c0c0c0;
+  --gray-d:#808080;
+  --gray-dd:#404040;
+  --white:#ffffff;
+  --blue:#000080;
+  --ink:#000000;
+  --hi:#dfdfdf;
+  --sel:#000080;
+  --key:#fffef5;
+  --keyb:#1a1a1a;
+  --acc:#000080;
+  --accent:#000080;     /* aliases kept so JS-touched classes still read fine */
+  --accent-2:#008000;
+  --hot:#aa0000;
+  --line:#808080;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{ -webkit-text-size-adjust:100%; }
+body{
+  background:var(--teal);
+  color:var(--ink);
+  font-family:"MS Sans Serif","Pixelated MS Sans Serif",Tahoma,Geneva,sans-serif;
+  font-size:13px;
+  min-height:100vh;
+  padding:14px;
+  padding-bottom:60px;
+}
+/* generic 3D bevels */
+.out{ border:2px solid; border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white); }
+.in{  border:2px solid; border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd); }
+
+/* the "window" wrapper */
+.win{
+  background:var(--gray);
+  border:2px solid;
+  border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+  box-shadow:1px 1px 0 #000;
+  margin:0 auto 16px;
+  max-width:1000px;
+}
+.titlebar{
+  background:linear-gradient(90deg,var(--blue),#1084d0);
+  color:#fff;
+  font-weight:bold;
+  padding:3px 4px 3px 6px;
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;
+  user-select:none;
+}
+.titlebar .ico{
+  width:16px;height:16px;background:var(--gray);
+  border:1px solid #000;display:flex;align-items:center;justify-content:center;
+  font-size:11px;line-height:1;color:#000;flex:0 0 auto;
+}
+.titlebar .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.titlebar .ctrl{display:flex;gap:2px}
+.titlebar .cbtn{
+  width:18px;height:16px;background:var(--gray);
+  border:2px solid;border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+  color:#000;font-size:10px;font-weight:bold;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.body{ padding:12px; }
+
+/* header window */
+.logo{ font-family:"VT323",monospace; font-size:40px; line-height:.9; letter-spacing:1px; }
+.logo em{font-style:normal;color:var(--blue)}
+.tag{ font-size:12px; margin-top:6px; line-height:1.5; max-width:680px; }
+
+/* section headings inside windows */
+h2{ font-size:13px; font-weight:bold; margin-bottom:3px; display:flex; align-items:center; gap:8px; }
+h2 .num{
+  background:var(--blue);color:#fff;font-size:10px;font-weight:bold;
+  padding:2px 5px;letter-spacing:.5px;
+}
+.sub{ font-size:11px; color:#000; margin-bottom:12px; line-height:1.5; }
+
+/* fieldset-style control grouping */
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:3px}
+label{font-size:11px;color:#000}
+select{
+  font-family:inherit;font-size:13px;background:#fff;color:#000;
+  border:2px solid;border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd);
+  padding:3px 4px;min-width:120px;border-radius:0;
+}
+select:focus{outline:1px dotted #000}
+
+/* buttons: classic raised, press to inset */
+.btn{
+  font-family:inherit;font-size:13px;background:var(--gray);color:#000;
+  border:2px solid;border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+  padding:5px 12px;cursor:pointer;border-radius:0;min-height:30px;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn:active{ border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd); padding:6px 11px 4px 13px; }
+.btn:focus{outline:1px dotted #000;outline-offset:-4px}
+.btn-primary,.btn-ghost,.btn-opt{ /* all share the chrome; keep classes for JS */ }
+
+.mode-toggle{display:inline-flex;gap:0}
+.mode-toggle button{
+  font-family:inherit;font-size:13px;background:var(--gray);color:#000;cursor:pointer;
+  border:2px solid;border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+  padding:5px 14px;min-height:30px;
+}
+.mode-toggle button.on{
+  border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd);
+  background:#b0b0b0;font-weight:bold;
+  background-image:repeating-conic-gradient(#a8a8a8 0% 25%, #b8b8b8 0% 50%);background-size:3px 3px;
+}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.spacer{flex:1;min-width:0}
+
+/* key detection */
+.keyinfo{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:#fff;color:#000;padding:10px 12px;
+  border:2px solid;border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd);
+}
+.keyinfo .big{ font-family:"VT323",monospace; font-size:26px; color:var(--blue); line-height:1; }
+.keyinfo .meta{font-size:11px;color:#000}
+.keybars{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.keybar{font-size:10px;color:#000;text-align:center;width:34px;font-family:"VT323",monospace}
+.keybar .bar{height:34px;width:100%;background:#fff;border:1px solid var(--gray-dd);display:flex;align-items:flex-end;overflow:hidden;margin-bottom:2px}
+.keybar .fill{width:100%;background:var(--blue)}
+
+/* chord cards = little inset windows */
+.cards{display:flex;gap:12px;flex-wrap:wrap}
+.card{
+  background:var(--gray);width:226px;position:relative;padding:0;
+  border:2px solid;border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+}
+.card .barlite{
+  background:linear-gradient(90deg,var(--blue),#1084d0);color:#fff;font-weight:bold;
+  font-size:12px;padding:2px 4px;display:flex;align-items:center;justify-content:space-between;
+}
+.card .inner{padding:10px 12px 12px}
+.card .x{
+  width:16px;height:14px;background:var(--gray);color:#000;cursor:pointer;
+  border:2px solid;border-color:var(--white) var(--gray-dd) var(--gray-dd) var(--white);
+  font-size:10px;font-weight:bold;line-height:1;display:flex;align-items:center;justify-content:center;
+}
+.card .x:active{border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd)}
+.card .name{font-family:"VT323",monospace;font-size:34px;line-height:1;margin-bottom:1px}
+.card .qual{font-size:11px;color:#000}
+.card .inv{font-size:10px;color:var(--blue);font-weight:bold;min-height:13px;margin:3px 0 8px}
+.card .tones{font-size:11px;color:#000;margin-top:8px}
+.card .tones b{color:#000;font-weight:bold}
+.empty{font-size:12px;padding:24px 0;text-align:center;width:100%;color:#000}
+
+/* piano */
+.piano{position:relative;height:108px;margin:4px 0;user-select:none;
+  border:2px solid;border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd);background:#000}
+.wkeys{display:flex;height:100%;position:relative;z-index:1}
+.wkey{flex:1;background:var(--key);border:1px solid #999;border-top:none;position:relative}
+.wkey.act{background:#ffd166}
+.wkey.root{background:#5fd35f}
+.wkey .lbl{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:8px;color:#000;font-weight:bold}
+.bkeys{position:absolute;top:0;left:0;right:0;height:62%;z-index:2;pointer-events:none}
+.bkey{position:absolute;width:5.2%;height:100%;background:#111;border:1px solid #000}
+.bkey.act{background:#caa11a}
+.bkey.root{background:#0a7a0a}
+.bkey .lbl{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:7px;color:#fff;font-weight:bold}
+
+/* guitar */
+.fret{margin:4px auto;width:150px;background:#fff;padding:2px}
+.fret svg{width:100%;display:block;background:#fff}
+.fwarn{font-size:11px;color:var(--hot);text-align:center;padding:22px 8px;line-height:1.5;
+  background:#fff;border:2px solid;border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd)}
+
+/* note + footer */
+.note{background:#ffffd0;border:2px solid;
+  border-color:var(--gray-dd) var(--white) var(--white) var(--gray-dd);
+  padding:10px 12px;color:#000;font-size:11px;line-height:1.6}
+footer{max-width:1000px;margin:0 auto;color:#fff;font-size:11px;line-height:1.6;text-align:center}
+footer p{margin-top:8px;color:#cfe}
+a{color:#000080}
+
+/* ===== MOBILE ===== */
+@media (max-width:640px){
+  body{padding:6px;padding-bottom:50px;font-size:14px}
+  .win{margin-bottom:10px}
+  .body{padding:10px}
+  .logo{font-size:30px}
+  .controls{gap:10px}
+  .field{flex:1 1 100%}
+  select{width:100%;min-width:0;font-size:16px;padding:7px 6px} /* 16px stops iOS zoom */
+  .field.inline{flex:1 1 auto}
+  .btn{font-size:14px;padding:9px 14px;min-height:40px;flex:1 1 auto;justify-content:center}
+  .mode-toggle{width:100%}
+  .mode-toggle button{flex:1;min-height:40px;font-size:14px}
+  .toolbar{gap:6px}
+  .spacer{display:none}
+  .cards{gap:10px}
+  .card{width:100%}
+  .card .name{font-size:38px}
+  .piano{height:120px}
+  .keybars{margin-left:0;width:100%;justify-content:space-between}
+  .keybar{flex:1;width:auto}
+  .keyinfo{gap:10px}
+  .fret{width:170px}
+}
+@media (max-width:380px){
+  .keybar{font-size:9px}
+  .keybar .bar{height:28px}
+}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <span class="ico">♪</span>
+    <span class="t">Voicing.exe — Chord Progression Studio</span>
+    <span class="ctrl"><span class="cbtn">_</span><span class="cbtn">□</span><span class="cbtn">×</span></span>
+  </div>
+  <div class="body">
+    <div class="logo">Voicing<em>.</em></div>
+    <div class="tag">A chord progression studio. Piano voicings are derived mathematically from intervals — every inversion is computed, never stored. Guitar shapes come from a curated library.</div>
+  </div>
+</div>
+
+<!-- BUILDER -->
+<div class="win">
+  <div class="titlebar">
+    <span class="ico">▤</span>
+    <span class="t">Progression Builder</span>
+    <span class="ctrl"><span class="cbtn">_</span><span class="cbtn">□</span><span class="cbtn">×</span></span>
+  </div>
+  <div class="body">
+    <h2><span class="num">01</span> Progression Builder</h2>
+    <div class="sub">Pick a root and quality, hit Add. Slash chords and inversions are computed from the chord's intervals.</div>
+    <div class="controls">
+      <div class="field inline">
+        <label>Root</label>
+        <select id="root"></select>
+      </div>
+      <div class="field inline">
+        <label>Quality</label>
+        <select id="qual"></select>
+      </div>
+      <div class="field inline">
+        <label>Bass / Inversion</label>
+        <select id="bass"></select>
+      </div>
+      <button class="btn btn-primary" id="add">+ Add Chord</button>
+      <div class="spacer"></div>
+      <div class="field">
+        <label>Output</label>
+        <div class="mode-toggle" id="mode">
+          <button data-m="piano" class="on">Piano</button>
+          <button data-m="guitar">Guitar</button>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-opt" id="optimize">Optimize Inversions</button>
+      <button class="btn btn-ghost" id="clear">Clear</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="png">Export PNG</button>
+      <button class="btn btn-ghost" id="pdf">Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEY DETECTION -->
+<div class="win">
+  <div class="titlebar">
+    <span class="ico">⌖</span>
+    <span class="t">Key Finder</span>
+    <span class="ctrl"><span class="cbtn">_</span><span class="cbtn">□</span><span class="cbtn">×</span></span>
+  </div>
+  <div class="body">
+    <h2><span class="num">KEY</span> Detected Key</h2>
+    <div class="sub">Each key is scored by how many of your chord tones fit its diatonic scale.</div>
+    <div class="keyinfo" id="keyinfo"><span class="meta">Add chords to detect a key.</span></div>
+  </div>
+</div>
+
+<!-- DIAGRAMS -->
+<div class="win" id="board">
+  <div class="titlebar">
+    <span class="ico">♬</span>
+    <span class="t">Voicing Sequence</span>
+    <span class="ctrl"><span class="cbtn">_</span><span class="cbtn">□</span><span class="cbtn">×</span></span>
+  </div>
+  <div class="body">
+    <h2><span class="num">02</span> Voicing Sequence</h2>
+    <div class="sub" id="boardsub">Diagrams render in order. Optimizing rewrites them with voice-leading inversions.</div>
+    <div class="cards" id="cards"><div class="empty">No chords yet — build a progression above.</div></div>
+  </div>
+</div>
+
+<footer>
+  <div class="note"><b>Honesty about the guitar mode:</b> guitar diagrams are pulled from a hand-curated shape library, not computed from intervals. Coverage is incomplete by design — exotic qualities or unusual slash basses may show a warning instead of a wrong fingering. Piano is the mathematically rigorous mode; trust it first.</div>
+  <p>Built with computed interval logic · html2canvas + jsPDF for export · No backend, no tracking.</p>
+</footer>
+<script>
+/* ============================================================
+   MUSIC THEORY CORE — everything computed from intervals
+   ============================================================ */
+const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const ENH   = {"C#":"Db","D#":"Eb","F#":"Gb","G#":"Ab","A#":"Bb"};
+const idx = n => NOTES.indexOf(n);
+const nameAt = pc => NOTES[((pc%12)+12)%12];
+
+// chord quality -> semitone intervals from root
+const QUALITIES = {
+  "maj":      {label:"major",      iv:[0,4,7]},
+  "min":      {label:"minor",      iv:[0,3,7]},
+  "dom7":     {label:"dom 7",      iv:[0,4,7,10]},
+  "maj7":     {label:"maj 7",      iv:[0,4,7,11]},
+  "min7":     {label:"min 7",      iv:[0,3,7,10]},
+  "m7b5":     {label:"min7♭5",     iv:[0,3,6,10]},
+  "dim":      {label:"dim",        iv:[0,3,6]},
+  "dim7":     {label:"dim 7",      iv:[0,3,6,9]},
+  "aug":      {label:"aug",        iv:[0,4,8]},
+  "sus2":     {label:"sus2",       iv:[0,2,7]},
+  "sus4":     {label:"sus4",       iv:[0,5,7]},
+  "add9":     {label:"add9",       iv:[0,4,7,14]},
+  "6":        {label:"6",          iv:[0,4,7,9]},
+  "min6":     {label:"min6",       iv:[0,3,7,9]},
+  "9":        {label:"9",          iv:[0,4,7,10,14]}
+};
+
+// chord -> array of absolute pitch classes
+function chordPCs(root, qual){
+  return QUALITIES[qual].iv.map(i => (idx(root)+i)%12);
+}
+
+// pretty chord symbol with slash bass
+function chordSymbol(c){
+  const q = QUALITIES[c.qual];
+  let sym = c.root + (c.qual==="maj"?"":qualSuffix(c.qual));
+  // determine displayed bass note from current inversion/slash
+  const bassPC = c.voicing ? c.voicing[0]%12 : chordPCs(c.root,c.qual)[c.inv||0];
+  const rootPC = idx(c.root);
+  if(bassPC!==rootPC){ sym += "/" + nameAt(bassPC); }
+  return sym;
+}
+function qualSuffix(q){
+  return {maj:"",min:"m",dom7:"7",maj7:"maj7",min7:"m7",m7b5:"m7♭5",dim:"dim",dim7:"dim7",
+    aug:"aug",sus2:"sus2",sus4:"sus4",add9:"add9","6":"6",min6:"m6","9":"9"}[q];
+}
+function invLabel(c){
+  const i = c.inv||0;
+  if(i===0) return "root position";
+  return ["root","1st inv","2nd inv","3rd inv","4th inv"][i] + " inversion";
+}
+
+/* ---- PIANO VOICING (computed) ----
+   Build absolute MIDI-ish note numbers in a 2-octave window (C3=base 48..72).
+   Inversion = rotate chord tones, lifting lower tones an octave. */
+const PIANO_BASE = 48; // C in our 2-octave display = pitch class 0 at slot 0
+function pianoVoicing(root, qual, inv){
+  const pcs = QUALITIES[qual].iv.map(i => idx(root)+i); // unwrapped intervals
+  // base absolute notes starting near root in lower octave
+  let notes = pcs.map(p => PIANO_BASE + p);
+  // normalize so lowest is within first octave region
+  // apply inversion: move lowest `inv` notes up an octave
+  notes = notes.slice().sort((a,b)=>a-b);
+  for(let k=0;k<inv;k++){
+    const low = notes.shift();
+    notes.push(low+12);
+    notes.sort((a,b)=>a-b);
+  }
+  return notes;
+}
+
+/* ============================================================
+   GUITAR — curated voicing library (NOT computed)
+   format: frets low->high E A D G B e ; -1 = muted, 0 = open
+   baseFret offset applied to non-open shapes
+   ============================================================ */
+const GTR = {
+  // open major
+  "C:maj":{f:[-1,3,2,0,1,0],base:0}, "A:maj":{f:[-1,0,2,2,2,0],base:0},
+  "G:maj":{f:[3,2,0,0,0,3],base:0}, "E:maj":{f:[0,2,2,1,0,0],base:0},
+  "D:maj":{f:[-1,-1,0,2,3,2],base:0}, "F:maj":{f:[1,3,3,2,1,1],base:1},
+  // minor
+  "A:min":{f:[-1,0,2,2,1,0],base:0}, "E:min":{f:[0,2,2,0,0,0],base:0},
+  "D:min":{f:[-1,-1,0,2,3,1],base:0}, "C:min":{f:[-1,3,5,5,4,3],base:3},
+  "G:min":{f:[3,5,5,3,3,3],base:3}, "B:min":{f:[-1,2,4,4,3,2],base:2},
+  "F:min":{f:[1,3,3,1,1,1],base:1},
+  // dom7
+  "G:dom7":{f:[3,2,0,0,0,1],base:0}, "C:dom7":{f:[-1,3,2,3,1,0],base:0},
+  "D:dom7":{f:[-1,-1,0,2,1,2],base:0}, "A:dom7":{f:[-1,0,2,0,2,0],base:0},
+  "E:dom7":{f:[0,2,0,1,0,0],base:0}, "B:dom7":{f:[-1,2,1,2,0,2],base:0},
+  // maj7
+  "C:maj7":{f:[-1,3,2,0,0,0],base:0}, "A:maj7":{f:[-1,0,2,1,2,0],base:0},
+  "D:maj7":{f:[-1,-1,0,2,2,2],base:0}, "G:maj7":{f:[3,2,0,0,0,2],base:0},
+  "E:maj7":{f:[0,2,1,1,0,0],base:0}, "F:maj7":{f:[-1,-1,3,2,1,0],base:0},
+  // min7
+  "A:min7":{f:[-1,0,2,0,1,0],base:0}, "E:min7":{f:[0,2,0,0,0,0],base:0},
+  "D:min7":{f:[-1,-1,0,2,1,1],base:0}, "C:min7":{f:[-1,3,1,3,1,3],base:0},
+  "G:min7":{f:[3,5,3,3,3,3],base:3}, "B:min7":{f:[-1,2,0,2,0,2],base:0},
+  // sus
+  "D:sus4":{f:[-1,-1,0,2,3,3],base:0}, "A:sus4":{f:[-1,0,2,2,3,0],base:0},
+  "E:sus4":{f:[0,2,2,2,0,0],base:0}, "D:sus2":{f:[-1,-1,0,2,3,0],base:0},
+  "A:sus2":{f:[-1,0,2,2,0,0],base:0}, "E:sus2":{f:[0,2,4,4,0,0],base:0},
+  // dim
+  "B:dim":{f:[-1,2,3,4,3,-1],base:0}, "C:dim":{f:[-1,3,4,5,4,-1],base:0},
+  "E:dim":{f:[0,1,2,0,-1,-1],base:0},
+  // aug
+  "C:aug":{f:[-1,3,2,1,1,0],base:0}, "E:aug":{f:[0,3,2,1,1,0],base:0},
+  "G:aug":{f:[3,2,1,0,0,3],base:0},
+  // add9 / 6 / 9
+  "C:add9":{f:[-1,3,2,0,3,0],base:0}, "G:add9":{f:[3,0,0,0,0,3],base:0},
+  "A:add9":{f:[-1,0,2,4,2,0],base:0}, "D:add9":{f:[-1,-1,0,2,3,0],base:0},
+  "C:6":{f:[-1,3,2,2,1,0],base:0}, "G:6":{f:[3,2,0,0,0,0],base:0},
+  "A:6":{f:[-1,0,2,2,2,2],base:0}, "E:6":{f:[0,2,2,1,2,0],base:0},
+  "G:9":{f:[3,0,0,0,0,1],base:0}, "C:9":{f:[-1,3,2,3,3,3],base:0},
+  "E:9":{f:[0,2,0,1,0,2],base:0}, "A:9":{f:[-1,0,2,4,2,3],base:0},
+  "D:dom7":{f:[-1,-1,0,2,1,2],base:0}
+};
+// barre-shape transposer: map any root using movable E-shape / A-shape for common qualities
+const STRING_PC = [4,9,2,7,11,4]; // open string pitch classes E A D G B e
+function guitarVoicing(root, qual){
+  const key = root+":"+qual;
+  if(GTR[key]) return {f:GTR[key].f, base:GTR[key].base, src:"library"};
+  // try movable shapes for the core qualities using E-shape and A-shape
+  const movable = {
+    "maj":{shape:[0,2,2,1,0,0],ref:4}, "min":{shape:[0,2,2,0,0,0],ref:4},
+    "dom7":{shape:[0,2,0,1,0,0],ref:4}, "maj7":{shape:[0,2,1,1,0,0],ref:4},
+    "min7":{shape:[0,2,0,0,0,0],ref:4}
+  };
+  const Ashape = {
+    "maj":{shape:[-1,0,2,2,2,0],ref:9}, "min":{shape:[-1,0,2,2,1,0],ref:9},
+    "dom7":{shape:[-1,0,2,0,2,0],ref:9}, "maj7":{shape:[-1,0,2,1,2,0],ref:9},
+    "min7":{shape:[-1,0,2,0,1,0],ref:9}
+  };
+  if(movable[qual]){
+    const targetPC = idx(root);
+    let off = ((targetPC - movable[qual].ref)%12+12)%12; // E-shape barre fret
+    let offA = ((targetPC - Ashape[qual].ref)%12+12)%12;
+    // pick lower neck position
+    if(off===0) off=12;
+    if(offA===0) offA=12;
+    if(offA<=off){
+      const f = Ashape[qual].shape.map(x=>x<0?-1:x+offA);
+      return {f, base:offA, src:"barre"};
+    }
+    const f = movable[qual].shape.map(x=>x<0?-1:x+off);
+    return {f, base:off, src:"barre"};
+  }
+  return null; // no reliable voicing
+}
+
+/* ============================================================
+   KEY DETECTION — diatonic fit scoring
+   ============================================================ */
+const MAJOR_SCALE = [0,2,4,5,7,9,11];
+function detectKeys(chords){
+  if(!chords.length) return [];
+  // collect all pitch classes used (weighted: roots count double)
+  const hist = new Array(12).fill(0);
+  chords.forEach(c=>{
+    chordPCs(c.root,c.qual).forEach(p=>hist[p]++);
+    hist[idx(c.root)]++; // root weight
+  });
+  const scored = [];
+  for(let tonic=0;tonic<12;tonic++){
+    const scale = MAJOR_SCALE.map(s=>(s+tonic)%12);
+    let fit=0,total=0;
+    hist.forEach((cnt,pc)=>{ if(cnt){ total+=cnt; if(scale.includes(pc)) fit+=cnt; }});
+    const pct = total? fit/total : 0;
+    // relative minor shares scale; label by tonic major / its vi minor
+    scored.push({tonic, name:nameAt(tonic)+" major", rel:nameAt((tonic+9)%12)+" minor", pct});
+  }
+  scored.sort((a,b)=>b.pct-a.pct);
+  return scored;
+}
+
+/* ============================================================
+   INVERSION OPTIMIZER — voice leading
+   ============================================================ */
+function optimizePiano(chords){
+  let prev = null;
+  chords.forEach(c=>{
+    const triadSize = QUALITIES[c.qual].iv.length;
+    const maxInv = Math.min(triadSize-1, 3);
+    let best=0, bestVoicing=null, bestCost=Infinity;
+    for(let inv=0;inv<=maxInv;inv++){
+      const v = pianoVoicing(c.root,c.qual,inv);
+      let cost;
+      if(!prev){ cost = Math.abs(v[0]-(PIANO_BASE+4)); } // prefer comfy first chord
+      else cost = voiceCost(prev, v);
+      if(cost<bestCost){bestCost=cost;best=inv;bestVoicing=v;}
+    }
+    c.inv=best; c.voicing=bestVoicing; prev=bestVoicing;
+  });
+}
+function voiceCost(a,b){
+  // sum of nearest-note distances (rough voice-leading metric)
+  let cost=0;
+  b.forEach(n=>{
+    let m=Infinity; a.forEach(p=>m=Math.min(m,Math.abs(n-p))); cost+=m;
+  });
+  return cost;
+}
+function optimizeGuitar(chords){
+  // revoice toward lower neck positions where library/barre allows; label inversion N/A note
+  chords.forEach(c=>{ c.inv=0; c.voicing=null; });
+}
+
+/* ============================================================
+   STATE + RENDER
+   ============================================================ */
+let chords = [];
+let mode = "piano";
+
+// populate dropdowns
+const rootSel=document.getElementById("root"), qualSel=document.getElementById("qual"), bassSel=document.getElementById("bass");
+NOTES.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent= ENH[n]? n+"/"+ENH[n] : n; rootSel.appendChild(o); });
+Object.entries(QUALITIES).forEach(([k,v])=>{ const o=document.createElement("option"); o.value=k; o.textContent=v.label; qualSel.appendChild(o); });
+function refreshBass(){
+  const pcs = chordPCs(rootSel.value, qualSel.value);
+  bassSel.innerHTML="";
+  pcs.forEach((p,i)=>{ const o=document.createElement("option"); o.value=i;
+    o.textContent = i===0? "root ("+nameAt(p)+")" : nameAt(p)+" ("+["","1st","2nd","3rd","4th"][i]+" inv)";
+    bassSel.appendChild(o); });
+}
+rootSel.value="C"; qualSel.value="maj"; refreshBass();
+rootSel.onchange=qualSel.onchange=refreshBass;
+
+document.getElementById("add").onclick=()=>{
+  const inv=parseInt(bassSel.value)||0;
+  const c={root:rootSel.value, qual:qualSel.value, inv, voicing:null};
+  c.voicing = pianoVoicing(c.root,c.qual,inv);
+  chords.push(c); render();
+};
+document.getElementById("clear").onclick=()=>{ chords=[]; render(); };
+document.getElementById("optimize").onclick=()=>{
+  if(!chords.length) return;
+  if(mode==="piano") optimizePiano(chords); else optimizeGuitar(chords);
+  render(true);
+};
+document.querySelectorAll("#mode button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#mode button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); mode=b.dataset.m; render();
+});
+
+function render(optimized){
+  renderKey();
+  const wrap=document.getElementById("cards");
+  document.getElementById("boardsub").textContent = mode==="piano"
+    ? "Computed piano voicings — chord tones highlighted, root in green. Inversions are calculated."
+    : "Curated guitar shapes. Unsupported qualities show a warning instead of a wrong fingering.";
+  if(!chords.length){ wrap.innerHTML='<div class="empty">No chords yet — build a progression above.</div>'; return; }
+  wrap.innerHTML="";
+  chords.forEach((c,i)=>{
+    const card=document.createElement("div"); card.className="card";
+    const sym=chordSymbol(c);
+    card.innerHTML=`<div class="barlite"><span>Chord ${i+1}</span><div class="x" data-i="${i}">×</div></div>
+      <div class="inner">
+        <div class="name">${sym}</div>
+        <div class="qual">${QUALITIES[c.qual].label}</div>
+        <div class="inv">${optimized||c.inv? invLabel(c):""}</div>
+      </div>`;
+    const inner=card.querySelector(".inner");
+    if(mode==="piano") inner.appendChild(renderPiano(c));
+    else inner.appendChild(renderGuitar(c));
+    const pcs=chordPCs(c.root,c.qual);
+    const tones=document.createElement("div"); tones.className="tones";
+    tones.innerHTML="tones: "+pcs.map(p=>"<b>"+nameAt(p)+"</b>").join(" · ");
+    inner.appendChild(tones);
+    wrap.appendChild(card);
+  });
+  wrap.querySelectorAll(".x").forEach(x=>x.onclick=()=>{chords.splice(+x.dataset.i,1);render();});
+}
+
+function renderKey(){
+  const box=document.getElementById("keyinfo");
+  const ranked=detectKeys(chords);
+  if(!ranked.length){ box.innerHTML='<span class="meta">Add chords to detect a key.</span>'; return; }
+  const top=ranked[0];
+  const bars=ranked.slice(0,7).map(k=>`<div class="keybar">
+      <div class="bar"><div class="fill" style="height:${Math.round(k.pct*100)}%"></div></div>
+      ${nameAt(k.tonic)}</div>`).join("");
+  box.innerHTML=`<div><div class="big">${top.name}</div>
+      <div class="meta">relative: ${top.rel} · diatonic fit ${Math.round(top.pct*100)}%</div></div>
+      <div class="keybars">${bars}</div>`;
+}
+
+/* PIANO RENDER — 2 octaves */
+function renderPiano(c){
+  const div=document.createElement("div"); div.className="piano";
+  const voicing = c.voicing || pianoVoicing(c.root,c.qual,c.inv||0);
+  const activePCs = voicing.map(n=>n%12);
+  const rootPC = idx(c.root);
+  // white keys: 14 (2 octaves of C..B)
+  const whitePCs=[0,2,4,5,7,9,11];
+  let wHTML="";
+  for(let o=0;o<2;o++){
+    whitePCs.forEach(pc=>{
+      const on=activePCs.includes(pc);
+      const isRoot=on && pc===rootPC;
+      wHTML+=`<div class="wkey ${on?(isRoot?'root':'act'):''}">${on?'<span class="lbl">'+nameAt(pc)+'</span>':''}</div>`;
+    });
+  }
+  // black keys positioned over white-key gaps
+  const blackMap=[{pc:1,after:0},{pc:3,after:1},{pc:6,after:3},{pc:8,after:4},{pc:10,after:5}];
+  let bHTML="";
+  const wWidthPct=100/14;
+  for(let o=0;o<2;o++){
+    blackMap.forEach(b=>{
+      const slot=o*7+b.after; // index of white key it sits after
+      const left=(slot+1)*wWidthPct - 2.6;
+      const on=activePCs.includes(b.pc);
+      const isRoot=on && b.pc===rootPC;
+      bHTML+=`<div class="bkey ${on?(isRoot?'root':'act'):''}" style="left:${left}%">${on?'<span class="lbl">'+nameAt(b.pc)+'</span>':''}</div>`;
+    });
+  }
+  div.innerHTML=`<div class="bkeys">${bHTML}</div><div class="wkeys">${wHTML}</div>`;
+  return div;
+}
+
+/* GUITAR RENDER */
+function renderGuitar(c){
+  const wrap=document.createElement("div");
+  if((c.inv||0)>0 && false){} // inversions not modeled on guitar lib
+  const v=guitarVoicing(c.root,c.qual);
+  if(!v){
+    wrap.innerHTML=`<div class="fwarn">⚠ No reliable ${QUALITIES[c.qual].label} voicing for ${c.root} in the curated library. Switch to Piano for the accurate, computed version.</div>`;
+    return wrap;
+  }
+  const f=v.f, base=v.base;
+  const strings=6, fretsShown=4;
+  const W=150,H=120,padX=18,padY=22, gw=(W-padX*2)/(strings-1), gh=72/fretsShown;
+  let svg=`<div class="fret"><svg viewBox="0 0 ${W} ${H}">`;
+  // nut or base label
+  if(base>0){ svg+=`<text x="${padX-12}" y="${padY+10}" fill="#000080" font-size="9" font-family="monospace" font-weight="bold">${base}fr</text>`; }
+  else { svg+=`<rect x="${padX}" y="${padY-3}" width="${gw*5}" height="3" fill="#000"/>`; }
+  // frets
+  for(let r=0;r<=fretsShown;r++){ svg+=`<line x1="${padX}" y1="${padY+r*gh}" x2="${padX+gw*5}" y2="${padY+r*gh}" stroke="#888" stroke-width="1"/>`; }
+  // strings
+  for(let s=0;s<strings;s++){ svg+=`<line x1="${padX+s*gw}" y1="${padY}" x2="${padX+s*gw}" y2="${padY+gh*fretsShown}" stroke="#555" stroke-width="1"/>`; }
+  // markers
+  f.forEach((fr,s)=>{
+    const x=padX+s*gw;
+    if(fr===-1){ svg+=`<text x="${x}" y="${padY-6}" fill="#aa0000" font-size="12" text-anchor="middle" font-family="monospace" font-weight="bold">×</text>`; }
+    else if(fr===0){ svg+=`<circle cx="${x}" cy="${padY-8}" r="3.5" fill="none" stroke="#008000" stroke-width="1.8"/>`; }
+    else{
+      const rel = base>0 ? fr-base+1 : fr;
+      const cy=padY+(rel-0.5)*gh;
+      svg+=`<circle cx="${x}" cy="${cy}" r="6" fill="#000080"/>`;
+    }
+  });
+  svg+=`</svg></div>`;
+  wrap.innerHTML=svg;
+  if(v.src==="barre"){ const n=document.createElement("div"); n.style.cssText="font-size:10px;color:#000;text-align:center;margin-top:2px"; n.textContent="movable barre shape"; wrap.appendChild(n); }
+  return wrap;
+}
+
+/* EXPORTS */
+document.getElementById("png").onclick=async()=>{
+  const el=document.getElementById("board");
+  const canvas=await html2canvas(el,{backgroundColor:"#0d0b14",scale:2});
+  const a=document.createElement("a"); a.download="progression.png"; a.href=canvas.toDataURL(); a.click();
+};
+document.getElementById("pdf").onclick=async()=>{
+  const el=document.getElementById("board");
+  const canvas=await html2canvas(el,{backgroundColor:"#0d0b14",scale:2});
+  const img=canvas.toDataURL("image/png");
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:"landscape",unit:"px",format:[canvas.width/2,canvas.height/2]});
+  pdf.addImage(img,"PNG",0,0,canvas.width/2,canvas.height/2);
+  pdf.save("progression.pdf");
+};
+
+// seed example
+["C:maj","A:min","F:maj","G:dom7"].forEach(s=>{
+  const [r,q]=s.split(":"); const c={root:r,qual:q,inv:0}; c.voicing=pianoVoicing(r,q,0); chords.push(c);
+});
+render();
+</script>
+</body>
+</html>

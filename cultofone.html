@@ -584,6 +584,9 @@ function enableTouch(){
   const joyBase = document.getElementById('joyBase');
   const joyStick = document.getElementById('joyStick');
   menuBtn.style.display = 'flex';
+  menuBtn.addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation(); showOverlay();
+  }, {passive:false});
   menuBtn.addEventListener('click', showOverlay);
   const euler = new THREE.Euler(0,0,0,'YXZ');
 

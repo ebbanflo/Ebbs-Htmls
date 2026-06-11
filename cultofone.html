@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CULT OF ONE</title>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Pirata+One&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;}
+  #c{width:100vw;height:100vh;display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
+  #overlay{
+    position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,#1a0303 0%,#000 75%);
+    cursor:pointer;z-index:10;user-select:none;transition:opacity .6s;
+  }
+  #overlay.hidden{opacity:0;pointer-events:none;}
+  #overlay h1{
+    font-family:'UnifrakturMaguntia',serif;font-weight:400;color:#fff;
+    font-size:clamp(40px,8vw,90px);margin:0;
+    text-shadow:0 0 18px #fff,0 0 45px #ffdddd,0 0 90px #ff8888;
+    letter-spacing:.04em;
+  }
+  #overlay h2{
+    font-family:'UnifrakturMaguntia',serif;font-weight:400;color:#e9e9e9;
+    font-size:clamp(20px,3.4vw,38px);margin:.4em 0 0;
+    text-shadow:0 0 12px #fff,0 0 35px #ffaaaa;
+  }
+  #overlay .enter{
+    font-family:'Pirata One',serif;color:#a01515;font-size:clamp(16px,2.2vw,26px);
+    margin-top:3em;letter-spacing:.25em;animation:pulse 2.2s infinite;
+  }
+  #overlay .keys{
+    font-family:'Pirata One',serif;color:#5c2020;font-size:14px;letter-spacing:.2em;margin-top:1.2em;
+  }
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+  /* preload gothic glyphs so canvas can use the font */
+  #fontseed{position:absolute;left:-9999px;top:-9999px;font-family:'UnifrakturMaguntia';visibility:hidden;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay">
+  <h1>MY LOVE LUCIFER</h1>
+  <h2>CULT OF ONE</h2>
+  <div class="enter">CLICK TO ENTER</div>
+  <div class="keys">WASD &mdash; WALK &nbsp;&middot;&nbsp; MOUSE &mdash; LOOK &nbsp;&middot;&nbsp; SHIFT &mdash; RUN</div>
+</div>
+<span id="fontseed">MY LOVE LUCIFER CULT OF ONE</span>
+<audio id="track" src="cult-of-one.mp3" loop preload="auto"></audio>
+
+<script>
+/* boot check: if the module below never ran, say so instead of silently ignoring clicks */
+window.__sceneReady = false;
+document.getElementById('overlay').addEventListener('click', function(){
+  setTimeout(function(){
+    if(!window.__sceneReady){
+      var k = document.querySelector('#overlay .keys');
+      k.textContent = 'COULD NOT LOAD 3D ENGINE — CHECK INTERNET, OR OPEN index.html IN CHROME / FIREFOX';
+      k.style.color = '#c03030';
+    }
+  }, 1500);
+});
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+/* ============================================================
+   CULT OF ONE — low-poly PS1 graveyard
+   ============================================================ */
+
+const PIX = 4;                       // screen pixel chunk size
+const WORLD = 84;                    // walkable half-extent
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, powerPreference:'high-performance' });
+renderer.setPixelRatio(1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x4a0707, 8, 85);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 2000);
+
+function resize(){
+  renderer.setSize(Math.max(2,Math.floor(innerWidth/PIX)), Math.max(2,Math.floor(innerHeight/PIX)), false);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+/* ---------- PS1 vertex snap ---------- */
+function ps1(mat){
+  mat.onBeforeCompile = (s)=>{
+    s.vertexShader = s.vertexShader.replace('#include <project_vertex>',
+      `#include <project_vertex>
+       gl_Position.xyz /= gl_Position.w;
+       gl_Position.xy = floor(gl_Position.xy * vec2(192.0,108.0)) / vec2(192.0,108.0);
+       gl_Position.xyz *= gl_Position.w;`);
+  };
+  return mat;
+}
+
+/* ---------- crunchy canvas noise textures ---------- */
+function noiseTex(hex, vary, size=64, repeat=1){
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const col = new THREE.Color(hex);
+  const img = ctx.createImageData(size,size);
+  for(let i=0;i<size*size;i++){
+    const v = 1 - Math.random()*vary;
+    img.data[i*4]   = col.r*255*v;
+    img.data[i*4+1] = col.g*255*v;
+    img.data[i*4+2] = col.b*255*v;
+    img.data[i*4+3] = 255;
+  }
+  ctx.putImageData(img,0,0);
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeat,repeat);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const groundTex = noiseTex(0x2b1410, 0.35, 128, 30);
+const pathTex   = noiseTex(0x1a0c09, 0.30, 64, 6);
+const stoneTex  = noiseTex(0x8d877c, 0.40, 32, 1);
+
+/* ---------- lights ---------- */
+scene.add(new THREE.AmbientLight(0x44100e, 1.1));
+const hemi = new THREE.HemisphereLight(0x6b1310, 0x0a0404, 0.85); scene.add(hemi);
+const moonLight = new THREE.DirectionalLight(0x99272a, 0.55);
+moonLight.position.set(-180, 220, -320); scene.add(moonLight);
+const giantLight = new THREE.DirectionalLight(0xff6a55, 0.7);
+giantLight.position.set(0, 60, 220);
+giantLight.target.position.set(0, 60, -190);
+scene.add(giantLight, giantLight.target);
+const lantern = new THREE.PointLight(0xff4422, 1.0, 16, 1.6); scene.add(lantern);
+
+/* ---------- sky dome ---------- */
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(950, 20, 14),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite:false, fog:false,
+    vertexShader:`varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`varying vec3 vP;
+      void main(){
+        float h = clamp(normalize(vP).y, -0.05, 1.0);
+        vec3 horizon = vec3(0.29, 0.027, 0.027);
+        vec3 zenith  = vec3(0.045, 0.0, 0.012);
+        vec3 c = mix(horizon, zenith, pow(max(h,0.0), 0.42));
+        c += (fract(sin(dot(floor(vP.xy*0.5),vec2(12.9898,78.233)))*43758.5453)-0.5)*0.015;
+        gl_FragColor = vec4(c,1.0);
+      }`
+  })
+);
+scene.add(sky);
+
+/* blood moon */
+const moon = new THREE.Mesh(new THREE.CircleGeometry(34, 18),
+  ps1(new THREE.MeshBasicMaterial({ color:0x8e1414, fog:false })));
+moon.position.set(-300, 230, -640); moon.lookAt(0,40,0); scene.add(moon);
+const moonGlow = new THREE.Mesh(new THREE.CircleGeometry(58, 18),
+  ps1(new THREE.MeshBasicMaterial({ color:0x5a0d0d, fog:false, transparent:true, opacity:0.45, blending:THREE.AdditiveBlending, depthWrite:false })));
+moonGlow.position.copy(moon.position); moonGlow.lookAt(0,40,0); scene.add(moonGlow);
+
+/* ---------- terrain ---------- */
+function groundH(x,z){
+  return Math.sin(x*0.13)*Math.cos(z*0.11)*0.5
+       + Math.sin(x*0.041+2.0)*Math.sin(z*0.037)*1.1;
+}
+const groundGeo = new THREE.PlaneGeometry(260, 260, 64, 64);
+groundGeo.rotateX(-Math.PI/2);
+{
+  const p = groundGeo.attributes.position;
+  for(let i=0;i<p.count;i++) p.setY(i, groundH(p.getX(i), p.getZ(i)));
+  groundGeo.computeVertexNormals();
+}
+const ground = new THREE.Mesh(groundGeo,
+  ps1(new THREE.MeshLambertMaterial({ map:groundTex, color:0xffffff, flatShading:true })));
+scene.add(ground);
+
+/* dirt path toward the giants */
+const pathGeo = new THREE.PlaneGeometry(6.5, 150, 2, 40);
+pathGeo.rotateX(-Math.PI/2);
+{
+  const p = pathGeo.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const x=p.getX(i), z=p.getZ(i)-20;
+    p.setX(i,x); p.setZ(i,z);
+    p.setY(i, groundH(x,z)+0.12);
+  }
+  pathGeo.computeVertexNormals();
+}
+scene.add(new THREE.Mesh(pathGeo, ps1(new THREE.MeshLambertMaterial({ map:pathTex, flatShading:true }))));
+
+/* ---------- materials ---------- */
+const stoneMats = [0xbab3a6, 0x9d968a, 0x877f72, 0xa39a8e].map(c =>
+  ps1(new THREE.MeshLambertMaterial({ map:stoneTex, color:c, flatShading:true })));
+const ironMat = ps1(new THREE.MeshLambertMaterial({ color:0x16100e, flatShading:true }));
+const treeMat = ps1(new THREE.MeshLambertMaterial({ color:0x140d09, flatShading:true }));
+
+const rand = (a,b)=>a+Math.random()*(b-a);
+const pick = arr=>arr[Math.floor(Math.random()*arr.length)];
+const onPath = (x,z)=>(Math.abs(x)<4.5 && z>-92 && z<42);
+const nearMaus = (x,z)=>(Math.hypot(x+26, z+55) < 10);
+const blocked = (x,z)=> onPath(x,z) || nearMaus(x,z);
+
+/* ---------- tombstones ---------- */
+function tombstone(){
+  const g = new THREE.Group();
+  const m = pick(stoneMats);
+  const kind = Math.random();
+  if(kind < 0.38){ // round-top slab
+    const w = rand(1.1,1.6), h = rand(1.4,2.2), d = 0.28;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+    slab.position.y = h/2; g.add(slab);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(w/2,w/2,d,7,1,false,Math.PI/2,Math.PI), m);
+    top.rotation.x = Math.PI/2;
+    top.position.y = h; g.add(top);
+  } else if(kind < 0.62){ // cross
+    const h = rand(1.8,2.8);
+    const v = new THREE.Mesh(new THREE.BoxGeometry(0.34,h,0.3), m); v.position.y=h/2; g.add(v);
+    const a = new THREE.Mesh(new THREE.BoxGeometry(rand(1.0,1.5),0.34,0.3), m); a.position.y=h*0.72; g.add(a);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,0.7), m); base.position.y=0.2; g.add(base);
+  } else if(kind < 0.82){ // plain block
+    const h = rand(0.9,1.5);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(rand(1.2,1.8),h,rand(0.4,0.7)), m);
+    b.position.y=h/2; g.add(b);
+  } else { // obelisk
+    const h = rand(2.4,3.6);
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.55,h,0.55), m); shaft.position.y=h/2+0.35; g.add(shaft);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.42,0.7,4), m);
+    tip.rotation.y=Math.PI/4; tip.position.y=h+0.7; g.add(tip);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,1.1), m); base.position.y=0.35; g.add(base);
+  }
+  return g;
+}
+for(let i=0;i<78;i++){
+  let x,z,tries=0;
+  do { x=rand(-WORLD+6,WORLD-6); z=rand(-WORLD+4,WORLD-14); tries++; } while(blocked(x,z) && tries<20);
+  if(blocked(x,z)) continue;
+  const t = tombstone();
+  t.position.set(x, groundH(x,z)-rand(0.05,0.3), z);
+  t.rotation.y = rand(-0.5,0.5) + (Math.random()<0.5?Math.PI:0);
+  t.rotation.x = rand(-0.13,0.13);
+  t.rotation.z = rand(-0.13,0.13);
+  scene.add(t);
+}
+
+/* ---------- dead trees ---------- */
+function deadTree(){
+  const g = new THREE.Group();
+  const h = rand(6,10);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.5,h,5,1), treeMat);
+  trunk.position.y = h/2; g.add(trunk);
+  const n = 2+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    const bl = rand(2,4);
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.16,bl,4,1), treeMat);
+    const ang = rand(0,Math.PI*2);
+    b.position.set(Math.cos(ang)*0.6, h*rand(0.55,0.9), Math.sin(ang)*0.6);
+    b.rotation.z = Math.cos(ang)*rand(0.6,1.1);
+    b.rotation.x = -Math.sin(ang)*rand(0.6,1.1);
+    b.translateY(bl/2);
+    g.add(b);
+  }
+  return g;
+}
+for(let i=0;i<16;i++){
+  let x,z,tries=0;
+  do { x=rand(-WORLD+4,WORLD-4); z=rand(-WORLD+2,WORLD-8); tries++; } while(blocked(x,z) && tries<20);
+  if(blocked(x,z)) continue;
+  const t = deadTree();
+  t.position.set(x, groundH(x,z)-0.1, z);
+  t.rotation.y = rand(0,Math.PI*2);
+  t.rotation.z = rand(-0.08,0.08);
+  scene.add(t);
+}
+
+/* ---------- iron fence ---------- */
+{
+  const picket = new THREE.BoxGeometry(0.12, 2.6, 0.12);
+  const spikeG = new THREE.ConeGeometry(0.11, 0.4, 4);
+  const positions = [];
+  const F = WORLD + 2;
+  for(let v=-F; v<=F; v+=2.4){
+    positions.push([v,-F],[v,F],[-F,v],[F,v]);
+  }
+  const pm = new THREE.InstancedMesh(picket, ironMat, positions.length);
+  const sm = new THREE.InstancedMesh(spikeG, ironMat, positions.length);
+  const d = new THREE.Object3D();
+  positions.forEach(([x,z],i)=>{
+    const y = groundH(x,z);
+    d.position.set(x, y+1.3, z); d.rotation.set(0,0,0); d.updateMatrix();
+    pm.setMatrixAt(i, d.matrix);
+    d.position.set(x, y+2.8, z); d.rotation.y = Math.PI/4; d.updateMatrix();
+    sm.setMatrixAt(i, d.matrix);
+  });
+  scene.add(pm, sm);
+  // rails
+  const railG = new THREE.BoxGeometry(F*2, 0.09, 0.09);
+  [[0,-F,0],[0,F,0],[-F,0,Math.PI/2],[F,0,Math.PI/2]].forEach(([x,z,ry])=>{
+    for(const hgt of [0.9, 2.1]){
+      const r = new THREE.Mesh(railG, ironMat);
+      r.position.set(x, groundH(x,z)+hgt, z);
+      r.rotation.y = ry;
+      scene.add(r);
+    }
+  });
+}
+
+/* ---------- gate arch framing the view ---------- */
+{
+  const pl = new THREE.Mesh(new THREE.BoxGeometry(0.9,7,0.9), pick(stoneMats));
+  const pr = pl.clone();
+  pl.position.set(-4.2, groundH(-4.2,24)+3.5, 24);
+  pr.position.set( 4.2, groundH(4.2,24)+3.5, 24);
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(10.2,0.9,1.1), ironMat);
+  beam.position.set(0, groundH(0,24)+7.2, 24);
+  scene.add(pl,pr,beam);
+}
+
+/* ---------- mausoleum ---------- */
+{
+  const g = new THREE.Group();
+  const m = stoneMats[1];
+  const body = new THREE.Mesh(new THREE.BoxGeometry(9,5.5,7), m); body.position.y=2.75; g.add(body);
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(4.4,4.4,9.6,3,1,false,Math.PI), m);
+  roof.rotation.z=Math.PI/2; roof.rotation.x=Math.PI/2;
+  roof.scale.set(1,1,0.55); roof.position.y=6.6; g.add(roof);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(2.2,3.4,0.4),
+    ps1(new THREE.MeshLambertMaterial({ color:0x050303 })));
+  door.position.set(0,1.7,3.55); g.add(door);
+  for(const sx of [-2.9,2.9]){
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.8,5.5,0.8), m);
+    col.position.set(sx,2.75,3.4); g.add(col);
+  }
+  g.position.set(-26, groundH(-26,-55)-0.2, -55);
+  g.rotation.y = 0.5;
+  scene.add(g);
+  const crypt = new THREE.PointLight(0xff2200, 1.4, 14, 1.8);
+  crypt.position.set(-23.5, groundH(-26,-55)+2.2, -51.5);
+  scene.add(crypt);
+  window.__cryptLight = crypt;
+}
+
+/* ---------- drifting ash ---------- */
+const ASH = 600;
+const ashGeo = new THREE.BufferGeometry();
+const ashPos = new Float32Array(ASH*3);
+for(let i=0;i<ASH;i++){
+  ashPos[i*3]   = rand(-70,70);
+  ashPos[i*3+1] = rand(0,40);
+  ashPos[i*3+2] = rand(-70,70);
+}
+ashGeo.setAttribute('position', new THREE.BufferAttribute(ashPos,3));
+const ash = new THREE.Points(ashGeo, new THREE.PointsMaterial({
+  color:0x6e5a55, size:0.14, transparent:true, opacity:0.75, sizeAttenuation:true }));
+scene.add(ash);
+
+/* ============================================================
+   THE FOUR — low-poly giants in the sky
+   ============================================================ */
+const BOXG = new THREE.BoxGeometry(1,1,1);
+function gMat(c, glow=0.32){
+  const m = new THREE.MeshLambertMaterial({ color:c, flatShading:true, fog:false });
+  m.emissive = new THREE.Color(c).multiplyScalar(glow);
+  return ps1(m);
+}
+function part(parent, mat, w,h,d, x,y,z){
+  const mesh = new THREE.Mesh(BOXG, mat);
+  mesh.scale.set(w,h,d);
+  mesh.position.set(x,y,z);
+  parent.add(mesh);
+  return mesh;
+}
+
+/*  cfg: jacket, jacket2(optional upper block), shirt, patch, pants, shoe,
+        skin, hair, style: long|beanie|cap|short, hatColor,
+        beard, mustache, glasses, bulk, tall                              */
+function makeMember(cfg){
+  const g = new THREE.Group();
+  const skin  = gMat(cfg.skin, 0.25);
+  const hair  = gMat(cfg.hair, 0.18);
+  const jack  = gMat(cfg.jacket);
+  const pants = gMat(cfg.pants, 0.22);
+  const shoe  = gMat(cfg.shoe ?? 0x0d0d0d, 0.18);
+  const dark  = gMat(0x070707, 0.1);
+  const bulk = cfg.bulk ?? 1.0;
+  const tall = cfg.tall ?? 1.0;
+
+  // legs + boots
+  for(const s of [-1,1]){
+    part(g, shoe, 0.62,0.38,1.0, s*0.36, 0.19, 0.08);
+    part(g, pants, 0.52,3.0,0.58, s*0.36, 1.92, 0);
+  }
+  // torso (parka bulk)
+  const tw = 2.3*bulk;
+  part(g, jack, tw, 3.0*tall, 1.15*bulk, 0, 4.9, 0);
+  if(cfg.jacket2){ // color-block upper panel
+    part(g, gMat(cfg.jacket2), tw+0.06, 1.35*tall, 1.15*bulk+0.06, 0, 5.75, 0);
+  }
+  // open-jacket shirt strip
+  part(g, gMat(cfg.shirt, 0.28), 0.95, 2.4*tall, 0.14, 0, 4.75, 0.62*bulk);
+  if(cfg.patch){ // chest patch / tee graphic
+    part(g, gMat(cfg.patch, 0.5), 0.55, 0.6, 0.06, 0, 4.95, 0.72*bulk);
+  }
+  // arms + hands
+  for(const s of [-1,1]){
+    const arm = part(g, cfg.sleeve2 ? gMat(cfg.sleeve2) : jack, 0.56*bulk, 1.45, 0.6*bulk, s*(tw/2+0.33), 5.55, 0);
+    arm.rotation.z = s*-0.06;
+    const fore = part(g, jack, 0.52*bulk, 1.45, 0.56*bulk, s*(tw/2+0.42), 4.15, 0);
+    fore.rotation.z = s*-0.10;
+    part(g, skin, 0.44,0.5,0.44, s*(tw/2+0.5), 3.25, 0);
+  }
+  // head group
+  const head = new THREE.Group();
+  head.position.set(0, 6.55 + (tall-1)*1.5, 0);
+  g.add(head);
+  part(head, skin, 0.98,1.15,0.98, 0, 0.55, 0);          // face
+  part(head, dark, 0.16,0.13,0.06, -0.24, 0.72, 0.5);    // eyes
+  part(head, dark, 0.16,0.13,0.06,  0.24, 0.72, 0.5);
+  if(cfg.glasses){
+    part(head, dark, 1.06,0.2,0.1, 0, 0.72, 0.5);
+    part(head, gMat(0x2a2a2a,0.45), 0.3,0.16,0.04, -0.24, 0.72, 0.56);
+    part(head, gMat(0x2a2a2a,0.45), 0.3,0.16,0.04,  0.24, 0.72, 0.56);
+  }
+  if(cfg.beard)    part(head, hair, 0.8,0.5,0.22, 0, 0.12, 0.45);
+  if(cfg.mustache) part(head, hair, 0.55,0.14,0.14, 0, 0.42, 0.48);
+
+  switch(cfg.style){
+    case 'long':
+      part(head, hair, 1.14,1.5,1.0, 0, 0.42, -0.18);   // mane
+      part(head, hair, 1.1,0.4,1.06, 0, 1.18, 0.05);    // top
+      break;
+    case 'beanie':
+      part(head, gMat(cfg.hatColor ?? 0x101010, 0.2), 1.08,0.72,1.08, 0, 1.12, 0);
+      part(head, hair, 1.0,0.25,1.0, 0, 0.78, -0.1);
+      break;
+    case 'cap':
+      part(head, gMat(cfg.hatColor ?? 0x8a8a82, 0.3), 1.06,0.45,1.06, 0, 1.2, 0);
+      part(head, gMat(cfg.hatColor ?? 0x8a8a82, 0.3), 0.9,0.12,0.55, 0, 1.05, 0.72);
+      part(head, hair, 1.0,0.3,1.0, 0, 0.85, -0.08);
+      break;
+    default: // short
+      part(head, hair, 1.04,0.42,1.04, 0, 1.1, -0.04);
+      part(head, hair, 1.04,0.6,0.3, 0, 0.85, -0.42);
+  }
+  // hood / collar behind neck for parka guys
+  if(cfg.hood){
+    part(g, gMat(cfg.hood), 1.7*bulk, 0.8, 0.7, 0, 6.45, -0.45);
+  }
+  g.userData.head = head;
+  return g;
+}
+
+const MEMBERS = [
+  { // long hair, glasses, green parka, band tee, tan pants
+    jacket:0x2c3a28, hood:0x222d1f, shirt:0x101010, patch:0xd8d8d0,
+    pants:0xa8946c, skin:0xb9885c, hair:0x141210,
+    style:'long', beard:true, glasses:true, bulk:1.12
+  },
+  { // beanie, huge dark navy parka, dark red shirt
+    jacket:0x14161e, hood:0x101218, shirt:0x4a1416, patch:null,
+    pants:0x0e0e10, skin:0xc09468, hair:0x0e0c0a,
+    style:'beanie', hatColor:0x0c0c0c, mustache:true, beard:true, bulk:1.25, tall:1.07
+  },
+  { // grey cap, black work jacket, white chest patch
+    jacket:0x121212, hood:0x0d0d0d, shirt:0x0b0b0b, patch:0xcfcbc0,
+    pants:0x131316, skin:0xc29873, hair:0x352718,
+    style:'cap', hatColor:0x83837b, beard:true, bulk:1.08, tall:0.97
+  },
+  { // pale, short dark hair, blue color-block jacket
+    jacket:0x101b2c, jacket2:0x6fa8cc, sleeve2:0x6fa8cc, hood:0x0c0c0c,
+    shirt:0x0c0c0c, patch:0xb8c4cc,
+    pants:0x0e0e10, skin:0xd6bda4, hair:0x131311,
+    style:'short', bulk:1.1, tall:1.02
+  }
+];
+
+const GIANT_SCALE = 11;
+const giantSpots = [ [-105, -185], [-36, -208], [36, -208], [105, -185] ];
+const giants = [];
+MEMBERS.forEach((cfg,i)=>{
+  const m = makeMember(cfg);
+  const [gx,gz] = giantSpots[i];
+  m.scale.setScalar(GIANT_SCALE);
+  m.position.set(gx, 38, gz);
+  m.rotation.y = Math.atan2(0-gx, 30-gz);
+  m.userData.head.rotation.x = 0.30;
+  m.userData.baseY = 38;
+  m.userData.phase = i*1.37;
+  scene.add(m);
+  giants.push(m);
+});
+
+/* ============================================================
+   gothic sky text
+   ============================================================ */
+let textMat = null;
+function buildSkyText(fontReady){
+  const cv = document.createElement('canvas');
+  cv.width = 2048; cv.height = 1024;
+  const ctx = cv.getContext('2d');
+  const fam = fontReady ? 'UnifrakturMaguntia' : 'serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+
+  function glowText(txt, px, y){
+    ctx.font = `${px}px '${fam}'`;
+    ctx.shadowColor = 'rgba(255,235,235,0.95)';
+    for(const blur of [90, 45, 18]){
+      ctx.shadowBlur = blur;
+      ctx.fillText(txt, cv.width/2, y);
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillText(txt, cv.width/2, y);
+  }
+  glowText('MY LOVE LUCIFER', 218, 400);
+  glowText('CULT OF ONE', 116, 660);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.NearestFilter;   // keep it crunchy
+  tex.minFilter = THREE.LinearFilter;
+  textMat = new THREE.MeshBasicMaterial({
+    map:tex, transparent:true, fog:false,
+    depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide
+  });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(190, 95), textMat);
+  plane.position.set(0, 168, -255);
+  plane.lookAt(0, 2, 30);
+  scene.add(plane);
+}
+const fontLoad = document.fonts ? document.fonts.load("200px 'UnifrakturMaguntia'") : Promise.reject();
+Promise.race([fontLoad, new Promise(r=>setTimeout(r,3500))])
+  .then(()=>buildSkyText(document.fonts.check("200px 'UnifrakturMaguntia'")))
+  .catch(()=>buildSkyText(false));
+
+/* ============================================================
+   controls / movement
+   ============================================================ */
+const controls = new PointerLockControls(camera, document.body);
+const overlay = document.getElementById('overlay');
+const track = document.getElementById('track');
+
+camera.position.set(0, groundH(0,36)+1.7, 36);
+camera.lookAt(0, 60, -180);
+
+/* pointer lock with drag-look fallback (sandboxed previews / iframes block pointer lock) */
+let fallbackLook = false;
+let everLocked = false;
+
+function showOverlay(){ overlay.classList.remove('hidden'); overlay.querySelector('.enter').textContent='CLICK TO RETURN'; }
+function hideOverlay(){ overlay.classList.add('hidden'); }
+
+function enableFallback(){
+  if(fallbackLook || document.pointerLockElement) return;
+  fallbackLook = true;
+  hideOverlay();
+  overlay.querySelector('.keys').textContent = 'WASD — WALK · DRAG MOUSE — LOOK · SHIFT — RUN · ESC — MENU';
+  let dragging=false, px=0, py=0;
+  const euler = new THREE.Euler(0,0,0,'YXZ');
+  addEventListener('mousedown', e=>{
+    if(!overlay.classList.contains('hidden')) return;
+    dragging=true; px=e.clientX; py=e.clientY;
+  });
+  addEventListener('mouseup', ()=>dragging=false);
+  addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    euler.setFromQuaternion(camera.quaternion);
+    euler.y -= (e.clientX-px)*0.004;
+    euler.x -= (e.clientY-py)*0.004;
+    euler.x = Math.max(-1.45, Math.min(1.45, euler.x));
+    camera.quaternion.setFromEuler(euler);
+    px=e.clientX; py=e.clientY;
+  });
+  addEventListener('keydown', e=>{
+    if(e.code==='Escape' && fallbackLook){
+      overlay.classList.contains('hidden') ? showOverlay() : hideOverlay();
+    }
+  });
+}
+
+document.addEventListener('pointerlockerror', ()=>{ if(!everLocked) enableFallback(); });
+
+overlay.addEventListener('click', ()=>{
+  track.volume = 0.9;
+  track.play().catch(()=>{});
+  if(fallbackLook){ hideOverlay(); return; }
+  try { controls.lock(); } catch(e){ enableFallback(); return; }
+  setTimeout(()=>{ if(!everLocked && !document.pointerLockElement) enableFallback(); }, 800);
+});
+controls.addEventListener('lock', ()=>{ everLocked = true; hideOverlay(); });
+controls.addEventListener('unlock', showOverlay);
+
+const keys = {};
+addEventListener('keydown', e=>{ keys[e.code]=true; });
+addEventListener('keyup',   e=>{ keys[e.code]=false; });
+
+/* ============================================================
+   loop
+   ============================================================ */
+const clock = new THREE.Clock();
+let bobT = 0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // movement
+  if(controls.isLocked || (fallbackLook && overlay.classList.contains('hidden'))){
+    const run = keys['ShiftLeft']||keys['ShiftRight'];
+    const sp = (run?11:5.5)*dt;
+    let moving = false;
+    if(keys['KeyW']||keys['ArrowUp'])   { controls.moveForward(sp);  moving=true; }
+    if(keys['KeyS']||keys['ArrowDown']) { controls.moveForward(-sp); moving=true; }
+    if(keys['KeyA']||keys['ArrowLeft']) { controls.moveRight(-sp);   moving=true; }
+    if(keys['KeyD']||keys['ArrowRight']){ controls.moveRight(sp);    moving=true; }
+    const p = camera.position;
+    p.x = THREE.MathUtils.clamp(p.x, -WORLD, WORLD);
+    p.z = THREE.MathUtils.clamp(p.z, -WORLD, WORLD);
+    if(moving) bobT += dt*(run?13:9);
+    p.y = groundH(p.x,p.z) + 1.7 + Math.sin(bobT)*0.05;
+  }
+
+  // lantern follows player, flickers
+  lantern.position.copy(camera.position).y += 0.4;
+  lantern.intensity = 0.9 + Math.sin(t*17)*0.12 + Math.sin(t*31)*0.07;
+  if(window.__cryptLight) window.__cryptLight.intensity = 1.2 + Math.sin(t*13+1)*0.3;
+
+  // giants sway + bob, heads slowly survey
+  for(const g of giants){
+    const ph = g.userData.phase;
+    g.rotation.z = Math.sin(t*0.28+ph)*0.022;
+    g.position.y = g.userData.baseY + Math.sin(t*0.45+ph)*1.4;
+    g.userData.head.rotation.x = 0.30 + Math.sin(t*0.37+ph)*0.05;
+    g.userData.head.rotation.y = Math.sin(t*0.22+ph*2)*0.08;
+  }
+
+  // text pulse
+  if(textMat) textMat.opacity = 0.82 + Math.sin(t*1.1)*0.14 + Math.sin(t*7.3)*0.04;
+
+  // ash drift
+  {
+    const a = ash.geometry.attributes.position;
+    for(let i=0;i<ASH;i++){
+      let y = a.getY(i) - dt*(0.5 + (i%5)*0.12);
+      let x = a.getX(i) + Math.sin(t*0.6+i)*dt*0.35;
+      if(y < 0){ y = 40; x = camera.position.x + rand(-70,70); a.setZ(i, camera.position.z + rand(-70,70)); }
+      a.setY(i,y); a.setX(i,x);
+    }
+    a.needsUpdate = true;
+  }
+
+  renderer.render(scene, camera);
+}
+window.__sceneReady = true;
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,1666 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Chord Field — Animated Chord Graph Analyzer</title>
+  <style>
+    :root {
+      --case: #f2eee3;
+      --case-2: #e4ddce;
+      --case-3: #fbf7ec;
+      --ink: #161616;
+      --soft-ink: #5d5d55;
+      --hairline: #1b1b1b;
+      --display: #0d1620;
+      --display-2: #101d2b;
+      --display-grid: rgba(180, 232, 255, .085);
+      --blue: #35a7ff;
+      --orange: #ff6b2c;
+      --green: #44c662;
+      --red: #f04444;
+      --yellow: #ffd84d;
+      --purple: #a080ff;
+      --white: #fffdf6;
+      --panel-shadow: 0 22px 70px rgba(29, 22, 12, .24);
+      --inner-shadow: inset 0 1px 0 rgba(255,255,255,.72), inset 0 -1px 0 rgba(0,0,0,.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(255, 216, 77, .25), transparent 31%),
+        radial-gradient(circle at 88% 10%, rgba(53, 167, 255, .18), transparent 30%),
+        linear-gradient(135deg, #d7d0c2, #f8f3e8 52%, #cfc6b7);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    button, select {
+      font: inherit;
+      color: var(--ink);
+    }
+
+    button {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .case {
+      width: min(1480px, calc(100vw - 24px));
+      min-height: calc(100vh - 24px);
+      margin: 12px auto;
+      padding: 16px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,0) 28%),
+        linear-gradient(135deg, var(--case-3), var(--case) 40%, var(--case-2));
+      border: 2px solid rgba(20,20,20,.88);
+      border-radius: 28px;
+      box-shadow: var(--panel-shadow);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .case::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 21px;
+      pointer-events: none;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1.2fr auto 1fr;
+      gap: 14px;
+      align-items: start;
+      position: relative;
+      z-index: 2;
+    }
+
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border: 2px solid var(--ink);
+      border-radius: 11px;
+      background: var(--white);
+      box-shadow: var(--inner-shadow);
+      display: grid;
+      place-items: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: -.08em;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(21px, 2.7vw, 38px);
+      letter-spacing: -.055em;
+      line-height: .9;
+      text-transform: lowercase;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--soft-ink);
+      letter-spacing: -.025em;
+    }
+
+    .transport {
+      display: grid;
+      grid-template-columns: repeat(4, 42px);
+      gap: 9px;
+      justify-content: center;
+      padding-top: 2px;
+    }
+
+    .op-button {
+      min-height: 38px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--white);
+      box-shadow: 0 3px 0 rgba(0,0,0,.96), var(--inner-shadow);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: -.05em;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+
+    .op-button:active, .op-button.is-on {
+      transform: translateY(3px);
+      box-shadow: 0 0 0 rgba(0,0,0,.96), var(--inner-shadow);
+    }
+
+    .op-button.blue { background: #d8f0ff; }
+    .op-button.orange { background: #ffd7c8; }
+    .op-button.green { background: #d9f7df; }
+    .op-button.red { background: #ffd6d6; }
+
+    .status-strip {
+      justify-self: end;
+      width: min(460px, 100%);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+
+    .status-cell {
+      min-height: 46px;
+      background: rgba(255,255,255,.58);
+      border: 1.5px solid var(--ink);
+      border-radius: 13px;
+      padding: 7px 8px;
+      box-shadow: var(--inner-shadow);
+    }
+
+    .status-cell small {
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--soft-ink);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: 3px;
+    }
+
+    .status-cell b {
+      display: block;
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: -.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .main {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 320px minmax(360px, 1fr) 350px;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .module {
+      background: rgba(255,253,246,.48);
+      border: 2px solid var(--ink);
+      border-radius: 21px;
+      box-shadow: var(--inner-shadow);
+      padding: 13px;
+      min-height: 0;
+    }
+
+    .module h2 {
+      margin: 0 0 9px;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #26231f;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .module h2 span {
+      color: var(--soft-ink);
+      font-weight: 500;
+    }
+
+    .stack {
+      display: grid;
+      gap: 13px;
+      align-content: start;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .display-wrap {
+      position: relative;
+      background:
+        linear-gradient(180deg, #1b1b1b, #050505);
+      border: 2px solid var(--ink);
+      border-radius: 24px;
+      padding: 10px;
+      min-height: 0;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.06), 0 12px 28px rgba(0,0,0,.18);
+      overflow: hidden;
+    }
+
+    .display {
+      height: 100%;
+      min-height: 560px;
+      position: relative;
+      background:
+        linear-gradient(var(--display-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--display-grid) 1px, transparent 1px),
+        radial-gradient(circle at 50% 44%, rgba(53,167,255,.16), transparent 37%),
+        linear-gradient(180deg, var(--display-2), var(--display));
+      background-size: 28px 28px, 28px 28px, auto, auto;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
+    .display::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.045), transparent 12%, transparent 88%, rgba(255,255,255,.04)),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0, rgba(255,255,255,.025) 1px, transparent 2px, transparent 5px);
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    #graph {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: manipulation;
+    }
+
+    .display-head {
+      position: absolute;
+      top: 12px;
+      left: 13px;
+      right: 13px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      gap: 9px;
+      align-items: start;
+      pointer-events: none;
+      color: #e4f7ff;
+      font-family: var(--mono);
+    }
+
+    .display-head .lcd-title {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity: .9;
+    }
+
+    .display-head .lcd-mode {
+      font-size: 10px;
+      opacity: .6;
+      text-align: right;
+    }
+
+    .relationship {
+      position: absolute;
+      left: 13px;
+      right: 13px;
+      bottom: 13px;
+      z-index: 6;
+      background: rgba(5, 10, 16, .72);
+      border: 1px solid rgba(170, 228, 255, .22);
+      border-radius: 14px;
+      padding: 10px;
+      color: #dff7ff;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.2);
+      pointer-events: none;
+    }
+
+    .relationship b {
+      color: #fff;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+
+    .note-button {
+      min-height: 42px;
+      border: 2px solid var(--ink);
+      border-radius: 11px;
+      background: #fffdf6;
+      box-shadow: 0 3px 0 #111, var(--inner-shadow);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: -.04em;
+      transition: transform .11s ease, box-shadow .11s ease, background .18s ease, color .18s ease;
+    }
+
+    .note-button.is-selected {
+      background: #d8f0ff;
+      color: #06344d;
+      transform: translateY(3px);
+      box-shadow: 0 0 0 #111, var(--inner-shadow);
+    }
+
+    .note-button.is-chord {
+      background: #ffe1c6;
+    }
+
+    .note-button.is-key:not(.is-selected):not(.is-chord) {
+      background: #e6f8e9;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .row > * { flex: 1 1 auto; }
+
+    .knob-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 2px 0 10px;
+    }
+
+    .knob {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--soft-ink);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+
+    .knob .cap {
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 33% 28%, rgba(255,255,255,.9), rgba(255,255,255,0) 28%),
+        conic-gradient(from -40deg, var(--blue), var(--green), var(--yellow), var(--orange), var(--blue));
+      box-shadow: 0 4px 0 #111, var(--inner-shadow);
+      position: relative;
+    }
+
+    .knob .cap::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      width: 3px;
+      height: 14px;
+      border-radius: 4px;
+      background: #111;
+      transform: translateX(-50%);
+    }
+
+    select {
+      width: 100%;
+      border: 2px solid var(--ink);
+      border-radius: 11px;
+      padding: 10px 34px 10px 10px;
+      background:
+        linear-gradient(45deg, transparent 50%, var(--ink) 50%) right 13px center / 7px 7px no-repeat,
+        linear-gradient(135deg, transparent 50%, var(--ink) 50%) right 8px center / 7px 7px no-repeat,
+        #fffdf6;
+      box-shadow: var(--inner-shadow);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .mode-tab {
+      min-height: 48px;
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      background: #fffdf6;
+      box-shadow: 0 3px 0 #111, var(--inner-shadow);
+      font-family: var(--mono);
+      text-transform: uppercase;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .06em;
+      transition: transform .11s ease, box-shadow .11s ease, background .18s ease;
+    }
+
+    .mode-tab.is-on {
+      transform: translateY(3px);
+      box-shadow: 0 0 0 #111, var(--inner-shadow);
+    }
+
+    .mode-tab[data-mode="chromatic"].is-on { background: #d8f0ff; }
+    .mode-tab[data-mode="fifths"].is-on { background: #e6f8e9; }
+    .mode-tab[data-mode="gravity"].is-on { background: #ffe1c6; }
+
+    .hint {
+      margin: 9px 0 0;
+      color: var(--soft-ink);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 9px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1.5px solid var(--ink);
+      background: rgba(255,253,246,.7);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: -.035em;
+    }
+
+    .chip.blue { background: #d8f0ff; }
+    .chip.orange { background: #ffe1c6; }
+    .chip.green { background: #e6f8e9; }
+    .chip.red { background: #ffd6d6; }
+    .chip.yellow { background: #fff3b8; }
+
+    .result {
+      border: 1.5px solid var(--ink);
+      background: rgba(255,253,246,.72);
+      border-radius: 14px;
+      padding: 9px 10px;
+      margin-bottom: 8px;
+      box-shadow: var(--inner-shadow);
+    }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .result b {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: -.05em;
+    }
+
+    .score {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--soft-ink);
+      white-space: nowrap;
+    }
+
+    .meter {
+      height: 5px;
+      border: 1px solid var(--ink);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 7px 0 6px;
+      background: rgba(0,0,0,.08);
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      width: var(--w, 40%);
+      background: var(--blue);
+    }
+
+    .result:nth-child(2n) .meter span { background: var(--green); }
+    .result:nth-child(3n) .meter span { background: var(--orange); }
+
+    .notes {
+      color: var(--soft-ink);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.35;
+    }
+
+    .empty {
+      color: var(--soft-ink);
+      font-size: 13px;
+      line-height: 1.4;
+      font-family: var(--mono);
+    }
+
+    .bottom-rail {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      gap: 3px;
+      min-height: 38px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      padding: 6px;
+      background: rgba(255,253,246,.54);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .key {
+      border: 1.5px solid var(--ink);
+      border-radius: 5px;
+      background: #fffdf6;
+      min-height: 26px;
+    }
+
+    .key.black {
+      background: #151515;
+    }
+
+    .credit {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--soft-ink);
+      text-align: right;
+      max-width: 360px;
+    }
+
+    .graph-edge {
+      fill: none;
+      stroke: rgba(182, 235, 255, .26);
+      stroke-width: 1.2;
+      stroke-linecap: round;
+      transition: stroke .22s ease, opacity .22s ease, stroke-width .22s ease;
+    }
+
+    .graph-edge.strong {
+      stroke: rgba(219, 247, 255, .48);
+      stroke-width: 1.8;
+    }
+
+    .graph-edge.selected {
+      stroke: var(--blue);
+      stroke-width: 3.4;
+      opacity: .95;
+      filter: drop-shadow(0 0 5px rgba(53,167,255,.35));
+    }
+
+    .graph-edge.chord {
+      stroke: var(--orange);
+      stroke-width: 3;
+      opacity: .92;
+      filter: drop-shadow(0 0 4px rgba(255,107,44,.32));
+    }
+
+    .graph-edge.keyedge {
+      stroke: rgba(68,198,98,.52);
+    }
+
+    .gravity-ring {
+      fill: none;
+      stroke: rgba(223,247,255,.14);
+      stroke-width: 1;
+      stroke-dasharray: 4 8;
+    }
+
+    .sweep {
+      fill: none;
+      stroke: rgba(255,216,77,.32);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 10 18;
+    }
+
+    .node-hit {
+      fill: transparent;
+      cursor: pointer;
+    }
+
+    .node-dot {
+      fill: #fffdf6;
+      stroke: #0a0a0a;
+      stroke-width: 2.2;
+      filter: drop-shadow(0 5px 0 rgba(0,0,0,.75));
+      transition: fill .18s ease, stroke .18s ease;
+    }
+
+    .node-label {
+      fill: #fff9de;
+      font-family: var(--mono);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: -.08em;
+      pointer-events: none;
+    }
+
+    .node-pc {
+      fill: rgba(223,247,255,.5);
+      font-family: var(--mono);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      font-weight: 800;
+      font-size: 8px;
+      pointer-events: none;
+    }
+
+    .node.selected .node-dot {
+      fill: var(--blue);
+      stroke: #d8f0ff;
+      filter: drop-shadow(0 0 10px rgba(53,167,255,.7));
+    }
+
+    .node.chord .node-dot {
+      fill: var(--orange);
+      stroke: #ffe1c6;
+      filter: drop-shadow(0 0 10px rgba(255,107,44,.65));
+    }
+
+    .node.key .node-dot {
+      stroke: var(--green);
+      stroke-width: 3.2;
+    }
+
+    .node.root .node-dot {
+      stroke: var(--yellow);
+      stroke-width: 4;
+    }
+
+    .node.selected .node-label,
+    .node.chord .node-label {
+      fill: #07111a;
+    }
+
+    .axis-label {
+      fill: rgba(223,247,255,.54);
+      font-family: var(--mono);
+      font-size: 9px;
+      text-anchor: middle;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    @media (max-width: 1080px) {
+      .case {
+        width: calc(100vw - 16px);
+        margin: 8px;
+        border-radius: 22px;
+        padding: 12px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .transport {
+        justify-content: start;
+      }
+
+      .status-strip {
+        justify-self: stretch;
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .display-wrap {
+        order: -1;
+      }
+
+      .display {
+        min-height: 56vh;
+      }
+
+      .stack {
+        overflow: visible;
+      }
+
+      .bottom-rail {
+        grid-template-columns: 1fr;
+      }
+
+      .credit {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .case {
+        width: 100vw;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+
+      .brand h1 {
+        font-size: 28px;
+      }
+
+      .status-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .control-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .mode-tabs {
+        grid-template-columns: 1fr;
+      }
+
+      .display {
+        min-height: 500px;
+      }
+
+      .relationship {
+        font-size: 11px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .op-button, .note-button, .mode-tab { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="case">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">cf</div>
+        <div>
+          <h1>chord field</h1>
+          <p>animated pitch graph / key scanner / chord detector</p>
+        </div>
+      </div>
+
+      <div class="transport" aria-label="Main controls">
+        <button id="resetAll" class="op-button red" type="button" title="Reset">rst</button>
+        <button id="clearSelection" class="op-button orange" type="button" title="Clear notes">clr</button>
+        <button id="toggleNames" class="op-button blue" type="button" title="Toggle sharps/flats">♭/♯</button>
+        <button id="toggleMotion" class="op-button green is-on" type="button" title="Toggle motion">mov</button>
+      </div>
+
+      <div class="status-strip">
+        <div class="status-cell">
+          <small>selected</small>
+          <b id="statusSelected">none</b>
+        </div>
+        <div class="status-cell">
+          <small>best chord</small>
+          <b id="statusChord">—</b>
+        </div>
+        <div class="status-cell">
+          <small>best key</small>
+          <b id="statusKey">—</b>
+        </div>
+        <div class="status-cell">
+          <small>mode</small>
+          <b id="statusMode">chromatic</b>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="stack">
+        <div class="module">
+          <h2>note matrix <span>01</span></h2>
+          <div id="noteGrid" class="control-grid"></div>
+          <p class="hint">Tap notes in the matrix or directly on the animated graph. The first selected note acts like a tonal anchor.</p>
+        </div>
+
+        <div class="module">
+          <h2>mode engine <span>02</span></h2>
+          <div class="mode-tabs">
+            <button class="mode-tab is-on" data-mode="chromatic" type="button">chromatic<br>circle</button>
+            <button class="mode-tab" data-mode="fifths" type="button">circle<br>fifths</button>
+            <button class="mode-tab" data-mode="gravity" type="button">interval<br>gravity</button>
+          </div>
+          <div class="knob-row" aria-hidden="true">
+            <div class="knob"><div class="cap"></div>pull</div>
+            <div class="knob"><div class="cap"></div>drift</div>
+            <div class="knob"><div class="cap"></div>glow</div>
+            <div class="knob"><div class="cap"></div>scan</div>
+          </div>
+          <p class="hint">Each mode has its own motion: chromatic has a clean orbit, fifths has harmonic stepping, and gravity pulls closer notes inward.</p>
+        </div>
+
+        <div class="module">
+          <h2>chord lamp <span>03</span></h2>
+          <div class="row">
+            <select id="chordRoot" aria-label="Chord root"></select>
+            <select id="chordType" aria-label="Chord type"></select>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button id="previewChord" class="op-button orange" type="button">preview</button>
+            <button id="selectChord" class="op-button blue" type="button">select</button>
+            <button id="clearChord" class="op-button" type="button">off</button>
+          </div>
+          <div id="previewChips" class="chip-row"></div>
+        </div>
+      </section>
+
+      <section class="display-wrap">
+        <div class="display" id="display">
+          <div class="display-head">
+            <div>
+              <div class="lcd-title">graph view</div>
+              <div class="lcd-mode" id="lcdHint">animated pitch-class constellation</div>
+            </div>
+            <div class="lcd-mode" id="lcdClock">00.00</div>
+          </div>
+          <svg id="graph" role="img" aria-label="Animated note relationship graph"></svg>
+          <div id="relationship" class="relationship">Select notes to begin. The graph is live immediately.</div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <div class="module">
+          <h2>chord possibilities <span>04</span></h2>
+          <div id="chordMatches"></div>
+        </div>
+
+        <div class="module">
+          <h2>key possibilities <span>05</span></h2>
+          <div id="keyMatches"></div>
+        </div>
+
+        <div class="module">
+          <h2>legend <span>06</span></h2>
+          <div class="chip-row">
+            <span class="chip blue">selected</span>
+            <span class="chip orange">chord preview</span>
+            <span class="chip green">best key</span>
+            <span class="chip yellow">anchor</span>
+          </div>
+          <p class="hint">Visual style is inspired by compact hardware-synth interfaces: off-white panel, crisp labels, colorful controls, and an LCD-like animated graph.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom-rail">
+      <div class="keyboard" aria-hidden="true" id="keyboardRail"></div>
+      <div class="credit">single-file static HTML / no libraries / GitHub Pages ready</div>
+    </footer>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var NOTE_SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  var NOTE_FLAT  = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
+  var PC_SMALL = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"];
+
+  var INTERVALS = [
+    "unison", "minor 2nd", "major 2nd", "minor 3rd", "major 3rd", "perfect 4th",
+    "tritone", "perfect 5th", "minor 6th", "major 6th", "minor 7th", "major 7th"
+  ];
+
+  var CONSONANCE = {
+    0: 1.00, 7: 0.96, 5: 0.90, 4: 0.82, 3: 0.78, 9: 0.70,
+    8: 0.64, 2: 0.46, 10: 0.42, 11: 0.28, 1: 0.22, 6: 0.12
+  };
+
+  var FIFTH_ORDER = [0,7,2,9,4,11,6,1,8,3,10,5];
+
+  var CHORD_TYPES = [
+    { id: "maj", label: "major", symbol: "", intervals: [0,4,7] },
+    { id: "min", label: "minor", symbol: "m", intervals: [0,3,7] },
+    { id: "dim", label: "diminished", symbol: "dim", intervals: [0,3,6] },
+    { id: "aug", label: "augmented", symbol: "aug", intervals: [0,4,8] },
+    { id: "sus2", label: "sus2", symbol: "sus2", intervals: [0,2,7] },
+    { id: "sus4", label: "sus4", symbol: "sus4", intervals: [0,5,7] },
+    { id: "6", label: "major 6", symbol: "6", intervals: [0,4,7,9] },
+    { id: "min6", label: "minor 6", symbol: "m6", intervals: [0,3,7,9] },
+    { id: "7", label: "dominant 7", symbol: "7", intervals: [0,4,7,10] },
+    { id: "maj7", label: "major 7", symbol: "maj7", intervals: [0,4,7,11] },
+    { id: "min7", label: "minor 7", symbol: "m7", intervals: [0,3,7,10] },
+    { id: "m7b5", label: "half-dim 7", symbol: "m7♭5", intervals: [0,3,6,10] },
+    { id: "dim7", label: "dim 7", symbol: "dim7", intervals: [0,3,6,9] },
+    { id: "add9", label: "add9", symbol: "add9", intervals: [0,2,4,7] },
+    { id: "minAdd9", label: "minor add9", symbol: "m(add9)", intervals: [0,2,3,7] },
+    { id: "9", label: "dominant 9", symbol: "9", intervals: [0,2,4,7,10] },
+    { id: "maj9", label: "major 9", symbol: "maj9", intervals: [0,2,4,7,11] },
+    { id: "min9", label: "minor 9", symbol: "m9", intervals: [0,2,3,7,10] },
+    { id: "quartal", label: "quartal", symbol: "quartal", intervals: [0,5,10] }
+  ];
+
+  var SCALES = [
+    { id: "major", label: "major", intervals: [0,2,4,5,7,9,11] },
+    { id: "naturalMinor", label: "natural minor", intervals: [0,2,3,5,7,8,10] },
+    { id: "harmonicMinor", label: "harmonic minor", intervals: [0,2,3,5,7,8,11] },
+    { id: "melodicMinor", label: "melodic minor", intervals: [0,2,3,5,7,9,11] },
+    { id: "dorian", label: "dorian", intervals: [0,2,3,5,7,9,10] },
+    { id: "phrygian", label: "phrygian", intervals: [0,1,3,5,7,8,10] },
+    { id: "lydian", label: "lydian", intervals: [0,2,4,6,7,9,11] },
+    { id: "mixolydian", label: "mixolydian", intervals: [0,2,4,5,7,9,10] },
+    { id: "locrian", label: "locrian", intervals: [0,1,3,5,6,8,10] },
+    { id: "majorPent", label: "major pentatonic", intervals: [0,2,4,7,9] },
+    { id: "minorPent", label: "minor pentatonic", intervals: [0,3,5,7,10] },
+    { id: "blues", label: "blues", intervals: [0,3,5,6,7,10] },
+    { id: "wholeTone", label: "whole tone", intervals: [0,2,4,6,8,10] },
+    { id: "chromatic", label: "chromatic", intervals: [0,1,2,3,4,5,6,7,8,9,10,11] }
+  ];
+
+  var state = {
+    selected: [],
+    previewChord: [],
+    keyScale: [],
+    mode: "chromatic",
+    useFlats: false,
+    motion: true,
+    bestChord: null,
+    bestKey: null
+  };
+
+  var el = {};
+  var nodeVisual = [];
+  var nodeEls = [];
+  var edgeEls = [];
+  var sweepEls = [];
+  var lastSize = { width: 0, height: 0 };
+  var needsTarget = true;
+  var rafId = null;
+  var startTime = performance.now();
+
+  function $(id) { return document.getElementById(id); }
+  function pc(n) { return ((n % 12) + 12) % 12; }
+  function names() { return state.useFlats ? NOTE_FLAT : NOTE_SHARP; }
+  function nameOf(n) { return names()[pc(n)]; }
+  function contains(arr, n) { return arr.indexOf(pc(n)) !== -1; }
+  function intervalUp(a, b) { return pc(b - a); }
+  function distance(a, b) {
+    var d = Math.abs(pc(a) - pc(b));
+    return Math.min(d, 12 - d);
+  }
+  function uniqueSorted(arr) {
+    var seen = {};
+    var out = [];
+    arr.forEach(function (n) {
+      var p = pc(n);
+      if (!seen[p]) { seen[p] = true; out.push(p); }
+    });
+    out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+  function tones(root, intervals) {
+    return uniqueSorted(intervals.map(function (i) { return root + i; }));
+  }
+  function chordLabel(root, type) {
+    return nameOf(root) + type.symbol;
+  }
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c];
+    });
+  }
+
+  function initEls() {
+    el.graph = $("graph");
+    el.display = $("display");
+    el.noteGrid = $("noteGrid");
+    el.chordRoot = $("chordRoot");
+    el.chordType = $("chordType");
+    el.previewChips = $("previewChips");
+    el.previewChord = $("previewChord");
+    el.selectChord = $("selectChord");
+    el.clearChord = $("clearChord");
+    el.resetAll = $("resetAll");
+    el.clearSelection = $("clearSelection");
+    el.toggleNames = $("toggleNames");
+    el.toggleMotion = $("toggleMotion");
+    el.relationship = $("relationship");
+    el.chordMatches = $("chordMatches");
+    el.keyMatches = $("keyMatches");
+    el.statusSelected = $("statusSelected");
+    el.statusChord = $("statusChord");
+    el.statusKey = $("statusKey");
+    el.statusMode = $("statusMode");
+    el.lcdHint = $("lcdHint");
+    el.lcdClock = $("lcdClock");
+    el.keyboardRail = $("keyboardRail");
+  }
+
+  function buildControls() {
+    el.noteGrid.innerHTML = "";
+    for (var i = 0; i < 12; i++) {
+      var btn = document.createElement("button");
+      btn.className = "note-button";
+      btn.type = "button";
+      btn.dataset.note = String(i);
+      btn.addEventListener("click", function (evt) {
+        toggleNote(Number(evt.currentTarget.dataset.note));
+      });
+      el.noteGrid.appendChild(btn);
+    }
+
+    el.chordRoot.innerHTML = "";
+    for (var r = 0; r < 12; r++) {
+      var opt = document.createElement("option");
+      opt.value = String(r);
+      opt.textContent = nameOf(r);
+      el.chordRoot.appendChild(opt);
+    }
+
+    el.chordType.innerHTML = "";
+    CHORD_TYPES.forEach(function (type) {
+      var opt = document.createElement("option");
+      opt.value = type.id;
+      opt.textContent = type.label;
+      el.chordType.appendChild(opt);
+    });
+
+    el.keyboardRail.innerHTML = "";
+    for (var k = 0; k < 24; k++) {
+      var key = document.createElement("div");
+      var black = [1,3,6,8,10].indexOf(k % 12) !== -1;
+      key.className = "key" + (black ? " black" : "");
+      el.keyboardRail.appendChild(key);
+    }
+  }
+
+  function makeSvg(tag) {
+    return document.createElementNS("http://www.w3.org/2000/svg", tag);
+  }
+
+  function buildGraphDom() {
+    el.graph.innerHTML = "";
+    nodeEls = [];
+    edgeEls = [];
+    sweepEls = [];
+    nodeVisual = [];
+
+    var ringGroup = makeSvg("g");
+    ringGroup.setAttribute("id", "rings");
+    el.graph.appendChild(ringGroup);
+
+    for (var rg = 0; rg < 4; rg++) {
+      var ring = makeSvg("circle");
+      ring.setAttribute("class", "gravity-ring");
+      ringGroup.appendChild(ring);
+      sweepEls.push(ring);
+    }
+
+    var sweep = makeSvg("circle");
+    sweep.setAttribute("class", "sweep");
+    ringGroup.appendChild(sweep);
+    sweepEls.push(sweep);
+
+    var edgeGroup = makeSvg("g");
+    edgeGroup.setAttribute("id", "edges");
+    el.graph.appendChild(edgeGroup);
+
+    for (var a = 0; a < 12; a++) {
+      for (var b = a + 1; b < 12; b++) {
+        var path = makeSvg("path");
+        path.dataset.a = String(a);
+        path.dataset.b = String(b);
+        path.setAttribute("class", "graph-edge");
+        edgeGroup.appendChild(path);
+        edgeEls.push(path);
+      }
+    }
+
+    var label = makeSvg("text");
+    label.setAttribute("id", "axisLabel");
+    label.setAttribute("class", "axis-label");
+    el.graph.appendChild(label);
+
+    var nodeGroup = makeSvg("g");
+    nodeGroup.setAttribute("id", "nodes");
+    el.graph.appendChild(nodeGroup);
+
+    for (var n = 0; n < 12; n++) {
+      var g = makeSvg("g");
+      g.setAttribute("class", "node");
+      g.setAttribute("role", "button");
+      g.setAttribute("tabindex", "0");
+      g.dataset.note = String(n);
+
+      var hit = makeSvg("circle");
+      hit.setAttribute("class", "node-hit");
+      hit.setAttribute("r", 34);
+
+      var dot = makeSvg("circle");
+      dot.setAttribute("class", "node-dot");
+      dot.setAttribute("r", 23);
+
+      var labelText = makeSvg("text");
+      labelText.setAttribute("class", "node-label");
+
+      var pcText = makeSvg("text");
+      pcText.setAttribute("class", "node-pc");
+
+      g.appendChild(hit);
+      g.appendChild(dot);
+      g.appendChild(labelText);
+      g.appendChild(pcText);
+
+      g.addEventListener("click", function (evt) {
+        toggleNote(Number(evt.currentTarget.dataset.note));
+      });
+      g.addEventListener("keydown", function (evt) {
+        if (evt.key === "Enter" || evt.key === " ") {
+          evt.preventDefault();
+          toggleNote(Number(evt.currentTarget.dataset.note));
+        }
+      });
+
+      nodeGroup.appendChild(g);
+      nodeEls[n] = { group: g, hit: hit, dot: dot, label: labelText, pc: pcText };
+      nodeVisual[n] = { x: 0, y: 0, tx: 0, ty: 0, initialized: false };
+    }
+  }
+
+  function graphSize() {
+    var rect = el.display.getBoundingClientRect();
+    return {
+      width: Math.max(320, Math.round(rect.width || 800)),
+      height: Math.max(380, Math.round(rect.height || 600))
+    };
+  }
+
+  function angleFor(n, mode) {
+    if (mode === "fifths") {
+      return (FIFTH_ORDER.indexOf(n) / 12) * Math.PI * 2 - Math.PI / 2;
+    }
+    return (n / 12) * Math.PI * 2 - Math.PI / 2;
+  }
+
+  function gravityScore(n) {
+    if (state.selected.length === 0) return 0.62;
+    var min = 6;
+    state.selected.forEach(function (s) { min = Math.min(min, distance(n, s)); });
+    return min / 6;
+  }
+
+  function getTargets(t) {
+    var size = graphSize();
+    var w = size.width;
+    var h = size.height;
+    var cx = w / 2;
+    var cy = h / 2 + 4;
+    var base = Math.max(116, Math.min(w, h) * 0.335);
+    var targets = [];
+
+    for (var n = 0; n < 12; n++) {
+      var angle = angleFor(n, state.mode);
+      var radius = base;
+      var wobble = state.motion ? Math.sin(t * 0.0015 + n * 0.77) * 3.2 : 0;
+
+      if (state.mode === "chromatic") {
+        radius = base + wobble;
+        angle += state.motion ? Math.sin(t * 0.00045) * 0.018 : 0;
+      } else if (state.mode === "fifths") {
+        radius = base * (0.96 + (state.motion ? Math.sin(t * 0.0011 + n) * 0.018 : 0));
+        angle += state.motion ? Math.sin(t * 0.0007 + n * 0.4) * 0.014 : 0;
+      } else if (state.mode === "gravity") {
+        var g = gravityScore(n);
+        var inner = base * 0.34;
+        var outer = base * 1.13;
+        radius = inner + g * (outer - inner);
+        if (contains(state.selected, n)) radius = inner * 0.72;
+        if (contains(state.previewChord, n) && !contains(state.selected, n)) radius *= 0.86;
+        angle += state.motion ? Math.sin(t * 0.001 + n * 1.2) * 0.032 : 0;
+      }
+
+      targets[n] = {
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius
+      };
+    }
+
+    return { size: size, cx: cx, cy: cy, base: base, points: targets };
+  }
+
+  function edgeClass(a, b) {
+    var cls = ["graph-edge"];
+    var d = distance(a, b);
+    if ((CONSONANCE[d] || 0) >= 0.75) cls.push("strong");
+    if (contains(state.keyScale, a) && contains(state.keyScale, b) && d <= 2) cls.push("keyedge");
+    if (contains(state.selected, a) && contains(state.selected, b)) cls.push("selected");
+    if (contains(state.previewChord, a) && contains(state.previewChord, b)) cls.push("chord");
+    return cls.join(" ");
+  }
+
+  function updateTargets(now) {
+    var target = getTargets(now);
+    var size = target.size;
+    if (size.width !== lastSize.width || size.height !== lastSize.height) {
+      el.graph.setAttribute("viewBox", "0 0 " + size.width + " " + size.height);
+      lastSize = size;
+    }
+
+    for (var i = 0; i < 12; i++) {
+      nodeVisual[i].tx = target.points[i].x;
+      nodeVisual[i].ty = target.points[i].y;
+      if (!nodeVisual[i].initialized) {
+        nodeVisual[i].x = nodeVisual[i].tx;
+        nodeVisual[i].y = nodeVisual[i].ty;
+        nodeVisual[i].initialized = true;
+      }
+    }
+
+    var rings = sweepEls;
+    for (var r = 0; r < 4; r++) {
+      rings[r].setAttribute("cx", target.cx);
+      rings[r].setAttribute("cy", target.cy);
+      rings[r].setAttribute("r", target.base * (0.36 + r * 0.23));
+      rings[r].style.opacity = state.mode === "gravity" ? String(0.36 - r * 0.045) : String(0.2 - r * 0.025);
+    }
+    rings[4].setAttribute("cx", target.cx);
+    rings[4].setAttribute("cy", target.cy);
+    rings[4].setAttribute("r", target.base * (state.mode === "gravity" ? 0.98 : 1.0));
+    rings[4].style.strokeDashoffset = String(-now * 0.025);
+    rings[4].style.opacity = state.motion ? ".9" : ".28";
+
+    var axis = $("axisLabel");
+    axis.setAttribute("x", target.cx);
+    axis.setAttribute("y", 34);
+    axis.textContent =
+      state.mode === "chromatic" ? "chromatic orbit / semitone adjacency" :
+      state.mode === "fifths" ? "harmonic stepping / perfect fifth cycle" :
+      "interval gravity / selected notes pull inward";
+
+    needsTarget = false;
+  }
+
+  function drawFrame(now) {
+    if (needsTarget || state.motion) updateTargets(now);
+
+    var spring = state.motion ? 0.115 : 0.36;
+    for (var i = 0; i < 12; i++) {
+      var v = nodeVisual[i];
+      v.x += (v.tx - v.x) * spring;
+      v.y += (v.ty - v.y) * spring;
+
+      var pulse = state.motion ? Math.sin(now * 0.005 + i * 0.9) : 0;
+      var selected = contains(state.selected, i);
+      var chord = contains(state.previewChord, i);
+      var key = contains(state.keyScale, i);
+      var root = state.selected.length && state.selected[0] === i;
+      var radius = 23 + (selected ? 3 : 0) + (chord ? 2 : 0) + (state.motion && (selected || chord) ? pulse * 1.5 : 0);
+
+      var node = nodeEls[i];
+      var cls = ["node"];
+      if (selected) cls.push("selected");
+      if (chord) cls.push("chord");
+      if (key) cls.push("key");
+      if (root) cls.push("root");
+      node.group.setAttribute("class", cls.join(" "));
+      node.group.setAttribute("transform", "translate(" + v.x.toFixed(2) + "," + v.y.toFixed(2) + ")");
+      node.group.setAttribute("aria-label", "Toggle " + nameOf(i));
+      node.dot.setAttribute("r", radius.toFixed(2));
+      node.label.textContent = nameOf(i);
+      node.label.setAttribute("y", "-2");
+      node.pc.textContent = PC_SMALL[i];
+      node.pc.setAttribute("y", "15");
+    }
+
+    edgeEls.forEach(function (path) {
+      var a = Number(path.dataset.a);
+      var b = Number(path.dataset.b);
+      var va = nodeVisual[a];
+      var vb = nodeVisual[b];
+      var mx = (va.x + vb.x) / 2;
+      var my = (va.y + vb.y) / 2;
+      var bend = state.mode === "fifths" ? 0.08 : (state.mode === "gravity" ? 0.04 : 0.02);
+      var cx = mx + (lastSize.width / 2 - mx) * bend;
+      var cy = my + (lastSize.height / 2 - my) * bend;
+      path.setAttribute("d", "M " + va.x.toFixed(2) + " " + va.y.toFixed(2) + " Q " + cx.toFixed(2) + " " + cy.toFixed(2) + " " + vb.x.toFixed(2) + " " + vb.y.toFixed(2));
+      path.setAttribute("class", edgeClass(a, b));
+      var base = 0.10 + (CONSONANCE[distance(a,b)] || 0.2) * 0.30;
+      if (contains(state.selected, a) && contains(state.selected, b)) base = 0.96;
+      else if (contains(state.previewChord, a) && contains(state.previewChord, b)) base = 0.88;
+      else if (contains(state.keyScale, a) && contains(state.keyScale, b) && distance(a,b) <= 2) base = 0.44;
+      path.style.opacity = String(base);
+    });
+
+    var elapsed = (now - startTime) / 1000;
+    el.lcdClock.textContent = elapsed.toFixed(2).padStart(5, "0");
+
+    rafId = requestAnimationFrame(drawFrame);
+  }
+
+  function currentChordType() {
+    var id = el.chordType.value;
+    for (var i = 0; i < CHORD_TYPES.length; i++) {
+      if (CHORD_TYPES[i].id === id) return CHORD_TYPES[i];
+    }
+    return CHORD_TYPES[0];
+  }
+
+  function previewCurrentChord(selectIt) {
+    var root = Number(el.chordRoot.value || 0);
+    var type = currentChordType();
+    state.previewChord = tones(root, type.intervals);
+    if (selectIt) state.selected = state.previewChord.slice();
+    updateAll();
+  }
+
+  function toggleNote(n) {
+    var next = state.selected.slice();
+    var idx = next.indexOf(pc(n));
+    if (idx === -1) next.push(pc(n));
+    else next.splice(idx, 1);
+    state.selected = uniqueSorted(next);
+    updateAll();
+  }
+
+  function detectChords() {
+    var selected = state.selected.slice();
+    var matches = [];
+    if (!selected.length) {
+      state.bestChord = null;
+      return matches;
+    }
+
+    for (var root = 0; root < 12; root++) {
+      CHORD_TYPES.forEach(function (type) {
+        var chordTones = tones(root, type.intervals);
+        var hits = 0;
+        selected.forEach(function (n) { if (contains(chordTones, n)) hits++; });
+        var missing = chordTones.filter(function (n) { return !contains(selected, n); }).length;
+        var extra = selected.filter(function (n) { return !contains(chordTones, n); }).length;
+        var exact = missing === 0 && extra === 0;
+        var rootBonus = contains(selected, root) ? 1.1 : 0;
+        var density = Math.max(0, 5 - chordTones.length) * 0.09;
+        var score = hits * 3.3 - missing * 1.12 - extra * 0.88 + rootBonus + density;
+        if (exact) score += 3.2;
+        if (hits >= Math.min(2, selected.length) && score > 1.5) {
+          matches.push({
+            name: chordLabel(root, type),
+            score: score,
+            exact: exact,
+            tones: chordTones
+          });
+        }
+      });
+    }
+
+    matches.sort(function (a, b) {
+      if (a.exact !== b.exact) return a.exact ? -1 : 1;
+      return b.score - a.score;
+    });
+    state.bestChord = matches[0] || null;
+    return matches.slice(0, 9);
+  }
+
+  function detectKeys() {
+    var selected = state.selected.slice();
+    var matches = [];
+    if (!selected.length) {
+      state.bestKey = null;
+      state.keyScale = [];
+      return matches;
+    }
+
+    for (var root = 0; root < 12; root++) {
+      SCALES.forEach(function (scale) {
+        var scaleTones = tones(root, scale.intervals);
+        var hits = 0;
+        selected.forEach(function (n) { if (contains(scaleTones, n)) hits++; });
+        var misses = selected.length - hits;
+        var rootBonus = contains(selected, root) ? 0.8 : 0;
+        var fifthBonus = contains(selected, root + 7) ? 0.38 : 0;
+        var thirdBonus = (contains(selected, root + 3) || contains(selected, root + 4)) ? 0.18 : 0;
+        var compactScalePenalty = scaleTones.length >= 12 ? 1.35 : 0;
+        var score = (hits / selected.length) * 10 - misses * 1.2 + rootBonus + fifthBonus + thirdBonus - compactScalePenalty;
+        matches.push({
+          name: nameOf(root) + " " + scale.label,
+          score: score,
+          tones: scaleTones
+        });
+      });
+    }
+
+    matches.sort(function (a, b) { return b.score - a.score; });
+    state.bestKey = matches[0] || null;
+    state.keyScale = state.bestKey ? state.bestKey.tones.slice() : [];
+    return matches.slice(0, 9);
+  }
+
+  function renderNoteButtons() {
+    var buttons = el.noteGrid.querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].textContent = nameOf(i);
+      buttons[i].classList.toggle("is-selected", contains(state.selected, i));
+      buttons[i].classList.toggle("is-chord", contains(state.previewChord, i));
+      buttons[i].classList.toggle("is-key", contains(state.keyScale, i));
+      buttons[i].setAttribute("aria-pressed", contains(state.selected, i) ? "true" : "false");
+    }
+
+    for (var r = 0; r < el.chordRoot.options.length; r++) {
+      el.chordRoot.options[r].textContent = nameOf(Number(el.chordRoot.options[r].value));
+    }
+  }
+
+  function renderPreview() {
+    if (!state.previewChord.length) {
+      el.previewChips.innerHTML = '<span class="chip">preview off</span>';
+      return;
+    }
+    el.previewChips.innerHTML = state.previewChord.map(function (n) {
+      return '<span class="chip orange">' + escapeHtml(nameOf(n)) + '</span>';
+    }).join("");
+  }
+
+  function meterWidth(score, max) {
+    var pct = Math.max(8, Math.min(100, (score / max) * 100));
+    return pct.toFixed(0) + "%";
+  }
+
+  function renderChordMatches(matches) {
+    if (!matches.length) {
+      el.chordMatches.innerHTML = '<div class="empty">select notes to scan possible chords</div>';
+      return;
+    }
+    var max = Math.max.apply(null, matches.map(function (m) { return m.score; }));
+    el.chordMatches.innerHTML = matches.map(function (m) {
+      return '<div class="result">' +
+        '<div class="result-head"><b>' + escapeHtml(m.name) + (m.exact ? ' <span class="chip green">exact</span>' : '') + '</b><span class="score">' + m.score.toFixed(1) + '</span></div>' +
+        '<div class="meter"><span style="--w:' + meterWidth(m.score, max) + '"></span></div>' +
+        '<div class="notes">' + m.tones.map(nameOf).join(" · ") + '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderKeyMatches(matches) {
+    if (!matches.length) {
+      el.keyMatches.innerHTML = '<div class="empty">select notes to estimate possible keys</div>';
+      return;
+    }
+    var max = Math.max.apply(null, matches.map(function (m) { return m.score; }));
+    el.keyMatches.innerHTML = matches.map(function (m, i) {
+      return '<div class="result">' +
+        '<div class="result-head"><b>' + escapeHtml(m.name) + (i === 0 ? ' <span class="chip green">shown</span>' : '') + '</b><span class="score">' + m.score.toFixed(1) + '</span></div>' +
+        '<div class="meter"><span style="--w:' + meterWidth(m.score, max) + '"></span></div>' +
+        '<div class="notes">' + m.tones.map(nameOf).join(" · ") + '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderRelationship() {
+    var html = "";
+    if (!state.selected.length) {
+      html = "Select notes to begin. The graph is live immediately.";
+    } else if (state.selected.length === 1) {
+      html = "<b>" + escapeHtml(nameOf(state.selected[0])) + "</b> selected. Add another note to see interval distance.";
+    } else {
+      var a = state.selected[state.selected.length - 2];
+      var b = state.selected[state.selected.length - 1];
+      var up = intervalUp(a, b);
+      html = "<b>" + escapeHtml(nameOf(a)) + " → " + escapeHtml(nameOf(b)) + "</b> / " +
+        INTERVALS[up] + " / " + up + " semitone" + (up === 1 ? "" : "s") +
+        " / closeness " + distance(a, b) + " of 6";
+    }
+
+    var chips = state.selected.map(function (n) {
+      return '<span class="chip blue">' + escapeHtml(nameOf(n)) + '</span>';
+    }).join("");
+
+    el.relationship.innerHTML = html + (chips ? '<div class="chip-row">' + chips + '</div>' : "");
+  }
+
+  function renderStatuses() {
+    el.statusSelected.textContent = state.selected.length ? state.selected.map(nameOf).join(" ") : "none";
+    el.statusChord.textContent = state.bestChord ? state.bestChord.name : "—";
+    el.statusKey.textContent = state.bestKey ? state.bestKey.name : "—";
+    el.statusMode.textContent = state.mode;
+    el.lcdHint.textContent =
+      state.mode === "chromatic" ? "chromatic orbit: equal semitone spacing" :
+      state.mode === "fifths" ? "fifths cycle: harmonic neighborhoods" :
+      "gravity field: interval distance becomes radius";
+
+    document.querySelectorAll(".mode-tab").forEach(function (button) {
+      button.classList.toggle("is-on", button.dataset.mode === state.mode);
+    });
+    el.toggleMotion.classList.toggle("is-on", state.motion);
+  }
+
+  function updateAll() {
+    var chordMatches = detectChords();
+    var keyMatches = detectKeys();
+    renderNoteButtons();
+    renderPreview();
+    renderChordMatches(chordMatches);
+    renderKeyMatches(keyMatches);
+    renderRelationship();
+    renderStatuses();
+    needsTarget = true;
+  }
+
+  function bindEvents() {
+    document.querySelectorAll(".mode-tab").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.mode = button.dataset.mode;
+        updateAll();
+      });
+    });
+
+    el.previewChord.addEventListener("click", function () {
+      previewCurrentChord(false);
+    });
+
+    el.selectChord.addEventListener("click", function () {
+      previewCurrentChord(true);
+    });
+
+    el.clearChord.addEventListener("click", function () {
+      state.previewChord = [];
+      updateAll();
+    });
+
+    el.resetAll.addEventListener("click", function () {
+      state.selected = [];
+      state.previewChord = [];
+      state.keyScale = [];
+      state.bestChord = null;
+      state.bestKey = null;
+      updateAll();
+    });
+
+    el.clearSelection.addEventListener("click", function () {
+      state.selected = [];
+      updateAll();
+    });
+
+    el.toggleNames.addEventListener("click", function () {
+      state.useFlats = !state.useFlats;
+      updateAll();
+    });
+
+    el.toggleMotion.addEventListener("click", function () {
+      state.motion = !state.motion;
+      updateAll();
+    });
+
+    el.chordRoot.addEventListener("change", function () {
+      if (state.previewChord.length) previewCurrentChord(false);
+      else updateAll();
+    });
+
+    el.chordType.addEventListener("change", function () {
+      if (state.previewChord.length) previewCurrentChord(false);
+      else updateAll();
+    });
+
+    window.addEventListener("resize", function () {
+      needsTarget = true;
+    });
+
+    if (window.ResizeObserver) {
+      var observer = new ResizeObserver(function () {
+        needsTarget = true;
+      });
+      observer.observe(el.display);
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && !rafId) rafId = requestAnimationFrame(drawFrame);
+    });
+  }
+
+  function init() {
+    initEls();
+    buildControls();
+    buildGraphDom();
+    bindEvents();
+    updateAll();
+    rafId = requestAnimationFrame(drawFrame);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
